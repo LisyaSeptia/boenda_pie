@@ -109,7 +109,7 @@ const POSKasirPage = () => {
     }
   };
 
-  const categories = ['Pie Susu', 'Pie Special', 'Pie Flavor', 'Kue Lainnya'];
+  const categories = ['Food', 'Drink'];
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">

@@ -79,14 +79,17 @@ const seedDataInternal = async () => {
 
   console.log('[Seed] Creating Products...');
   const productsData = [
-    { code: 'PIE-001', name: 'Pie Susu Original', category: 'Pie Susu', price: 2500, stock: 100, minStock: 20, unit: 'pcs', description: 'Pie susu krispi manis lezat' },
-    { code: 'PIE-002', name: 'Pie Keju', category: 'Pie Susu', price: 3000, stock: 80, minStock: 15, unit: 'pcs', description: 'Pie susu dengan topping keju melimpah' },
-    { code: 'PIE-003', name: 'Pie Cokelat', category: 'Pie Susu', price: 3000, stock: 75, minStock: 15, unit: 'pcs', description: 'Pie susu rasa cokelat manis' },
-    { code: 'PIE-004', name: 'Pie Brownies', category: 'Pie Special', price: 4000, stock: 50, minStock: 10, unit: 'pcs', description: 'Kombinasi pie krispi dan fudgy brownies' },
-    { code: 'PIE-005', name: 'Pie Buah / Fruit Pie', category: 'Pie Special', price: 4500, stock: 40, minStock: 10, unit: 'pcs', description: 'Pie topping fla dan potongan buah segar' },
-    { code: 'PIE-006', name: 'Pie Red Velvet', category: 'Pie Flavor', price: 3500, stock: 60, minStock: 10, unit: 'pcs', description: 'Pie khas warna merah red velvet' },
-    { code: 'PIE-007', name: 'Pie Matcha', category: 'Pie Flavor', price: 3500, stock: 45, minStock: 10, unit: 'pcs', description: 'Pie rasa green tea matcha manis legit' },
-    { code: 'PIE-008', name: 'Pie Taro', category: 'Pie Flavor', price: 3500, stock: 3, minStock: 10, unit: 'pcs', description: 'Pie rasa talas taro (Stok Rendah)' }
+    { code: 'PIE-001', name: 'Pie Nanas', category: 'Food', price: 2000, stock: 100, minStock: 20, unit: 'pcs', description: 'Kulit pie renyah dipadukan dengan selai nanas manis-asam segar yang lumer di mulut' },
+    { code: 'PIE-002', name: 'Pie Strawberry', category: 'Food', price: 2000, stock: 80, minStock: 15, unit: 'pcs', description: 'Sentuhan manis dan asam segar dari buah stroberi pilihan di atas kulit pie yang gurih' },
+    { code: 'PIE-003', name: 'Pie Choco Brownie', category: 'Food', price: 2000, stock: 75, minStock: 15, unit: 'pcs', description: 'Kombinasi unik renyahnya kulit pie dan lembutnya rasa cokelat pekat khas brownie' },
+    { code: 'PIE-004', name: 'Pie Matcha', category: 'Food', price: 2000, stock: 50, minStock: 10, unit: 'pcs', description: 'Kulit pie renyah dipadukan dengan isian beraroma teh hijau (matcha) yang lembut dan menenangkan' },
+    { code: 'PIE-005', name: 'Pie Red Velvet', category: 'Food', price: 2000, stock: 40, minStock: 10, unit: 'pcs', description: 'Kelezatan rasa red velvet yang manis, gurih, dan khas dengan warna merah menggoda' },
+    { code: 'PIE-006', name: 'Pie Taro', category: 'Food', price: 2000, stock: 60, minStock: 10, unit: 'pcs', description: 'Sensasi rasa talas (taro) yang manis, creamy, dan beraroma harum di setiap gigitan' },
+    { code: 'JUS-007', name: 'Jus Tapai Singkong', category: 'Drink', price: 5000, stock: 45, minStock: 10, unit: 'pcs', description: 'Minuman olahan tapai singkong yang lembut, kental, dengan rasa manis-asam unik yang menyegarkan' },
+    { code: 'JUS-008', name: 'Jus Jambu Biji', category: 'Drink', price: 5000, stock: 3, minStock: 10, unit: 'pcs', description: 'Kesegaran alami jambu biji merah pilihan yang kental, manis, dan kaya vitamin C' },
+    { code: 'JUS-009', name: 'Jus Naga', category: 'Drink', price: 5000, stock: 3, minStock: 10, unit: 'pcs', description: 'Kesegaran warna merah alami buah naga yang kaya nutrisi, manis, dan menyehatkan' },
+    { code: 'JUS-010', name: 'Jus Mangga', category: 'Drink', price: 5000, stock: 3, minStock: 10, unit: 'pcs', description: 'Minuman kental dengan kenikmatan rasa manis tropis alami dari buah mangga segar' },
+    { code: 'JUS-011', name: 'Jus Jeruk', category: 'Drink', price: 5000, stock: 3, minStock: 10, unit: 'pcs', description: 'Ekstrak jeruk segar yang kaya rasa manis-asam alami, cocok untuk mendinginkan dan menyegarkan hari Anda' },
   ];
 
   const insertedProducts = await Product.insertMany(productsData);
