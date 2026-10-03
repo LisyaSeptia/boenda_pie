@@ -10,86 +10,121 @@ import {
   ArrowUpDown,
   Receipt,
   BarChart3,
-  PieChart
+  PieChart,
+  LogOut,
+  Users,
+  UserCircle
 } from 'lucide-react';
 
 const Sidebar = ({ isOpen, toggleSidebar }) => {
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, logout } = useAuth();
 
   const adminNav = [
-    { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { path: '/pos', label: 'Kasir / POS', icon: ShoppingBag },
-    { path: '/products', label: 'Data Produk', icon: Package },
-    { path: '/materials', label: 'Data Bahan Baku', icon: Wheat },
-    { path: '/production', label: 'Produksi', icon: Factory },
-    { path: '/stock', label: 'Stok Movement', icon: ArrowUpDown },
-    { path: '/transactions', label: 'Transaksi', icon: Receipt },
-    { path: '/reports', label: 'Laporan Penjualan', icon: BarChart3 }
+    { path: '/dashboard', label: 'Beranda', icon: LayoutDashboard, color: 'blue' },
+    { path: '/pos', label: 'Kasir', icon: ShoppingBag, color: 'pink' },
+    { path: '/products', label: 'Data Produk', icon: Package, color: 'yellow' },
+    { path: '/materials', label: 'Data Bahan Baku', icon: Wheat, color: 'blue' },
+    { path: '/production', label: 'Produksi', icon: Factory, color: 'pink' },
+    { path: '/stock', label: 'Aktivitas Stok', icon: ArrowUpDown, color: 'yellow' },
+    { path: '/transactions', label: 'Transaksi', icon: Receipt, color: 'blue' },
+    { path: '/reports', label: 'Laporan Penjualan', icon: BarChart3, color: 'pink' },
+    { path: '/profile', label: 'Profil Saya', icon: UserCircle, color: 'blue' }
   ];
 
   const kasirNav = [
-    { path: '/pos', label: 'Kasir / POS', icon: ShoppingBag },
-    { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { path: '/transactions', label: 'Riwayat Transaksi', icon: Receipt }
+    { path: '/dashboard', label: 'Beranda', icon: LayoutDashboard, color: 'blue' },
+    { path: '/pos', label: 'Kasir', icon: ShoppingBag, color: 'pink' },
+    { path: '/transactions', label: 'Riwayat Transaksi', icon: Receipt, color: 'blue' },
+    { path: '/profile', label: 'Profil Saya', icon: UserCircle, color: 'yellow' }
   ];
 
   const navItems = isAdmin ? adminNav : kasirNav;
 
+  const colorMap = {
+    blue:   { bg: '#beeaff', text: '#1a6fa0' },
+    pink:   { bg: '#f8cee8', text: '#a0336e' },
+    yellow: { bg: '#fcf0c0', text: '#8a6000' },
+    salmon: { bg: '#fff4e7', text: '#9a4a00' },
+  };
+
   return (
     <aside
-      className={`fixed top-0 left-0 z-40 w-64 h-screen bg-slate-900 text-slate-300 transition-transform duration-300 ease-in-out border-r border-slate-800 ${
+      style={{ background: '#fffaf5', borderRight: '1.5px solid #f0e8e0' }}
+      className={`fixed top-0 left-0 z-40 w-64 h-screen transition-transform duration-300 ease-in-out flex flex-col ${
         isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
       }`}
     >
       {/* Sidebar Header */}
-      <div className="flex items-center gap-3 h-16 px-6 bg-slate-950/60 border-b border-slate-800/80">
-        <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500 to-amber-400 flex items-center justify-center text-slate-950 font-black shadow-md shadow-amber-500/20">
-          <PieChart className="w-6 h-6 text-slate-950" />
+      <div style={{ background: '#fff4f9', borderBottom: '2px solid #f8cee8' }}
+        className="flex items-center gap-3 h-16 px-4 shrink-0">
+        <div style={{
+          width: 36,
+          height: 36,
+          borderRadius: 10,
+          background: 'linear-gradient(135deg, #fff0f7 0%, #fffbea 100%)',
+          border: '1.5px solid #f8cee8',
+          boxShadow: '0 2px 8px rgba(248,206,232,0.4)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexShrink: 0,
+          overflow: 'hidden'
+        }}>
+          <img
+            src="/cute-pie.jpg"
+            alt="Boenda Pie"
+            style={{ width: 30, height: 30, objectFit: 'cover', borderRadius: 7, transform: 'translateY(-1px)' }}
+          />
         </div>
-        <div>
-          <h1 className="text-base font-extrabold text-white tracking-tight leading-none">BOENDA PIE</h1>
-          <span className="text-[11px] font-medium text-amber-400 tracking-wider uppercase">Purwokerto</span>
+        <div className="flex flex-col justify-center">
+          <h1 style={{ color: '#a0336e' }} className="text-[15px] font-black tracking-tight leading-none mb-1">BOENDA PIE</h1>
+          <span style={{ color: '#1a6fa0' }} className="text-[10px] font-extrabold tracking-widest uppercase leading-none">Purwokerto</span>
         </div>
       </div>
 
-      {/* Profile Card */}
-      <div className="p-4 mx-3 my-4 rounded-xl bg-slate-800/50 border border-slate-700/50 flex items-center gap-3">
-        <div className="w-9 h-9 rounded-full bg-amber-500/20 text-amber-400 font-bold flex items-center justify-center text-sm border border-amber-500/30">
-          {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
-        </div>
-        <div className="overflow-hidden">
-          <p className="text-sm font-semibold text-white truncate">{user?.name || user?.username}</p>
-          <span className={`inline-block px-2 py-0.5 text-[10px] font-bold rounded-full ${
-            isAdmin ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
-          }`}>
-            {user?.role}
-          </span>
-        </div>
-      </div>
+
 
       {/* Navigation List */}
-      <nav className="px-3 space-y-1 font-medium text-sm">
+      <nav className="px-3 space-y-1 font-semibold text-sm flex-1 overflow-y-auto">
+        <p style={{ color: '#9b8b7c' }} className="text-[10px] font-extrabold uppercase tracking-widest px-2 pt-1 pb-2">Menu Utama</p>
         {navItems.map((item) => {
           const Icon = item.icon;
+          const c = colorMap[item.color];
           return (
             <NavLink
               key={item.path}
               to={item.path}
               onClick={() => toggleSidebar && toggleSidebar(false)}
               className={({ isActive }) =>
-                `flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${
-                  isActive
-                    ? 'bg-amber-500 text-slate-950 font-bold shadow-md shadow-amber-500/20'
-                    : 'text-slate-400 hover:bg-slate-800 hover:text-slate-100'
+                `flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 ${
+                  isActive ? 'shadow-sm' : 'hover:bg-white/70'
                 }`
               }
+              style={({ isActive }) => isActive
+                ? { background: c.bg, color: c.text, border: `1.5px solid ${c.bg === '#f8cee8' ? '#f0a3d0' : c.bg === '#beeaff' ? '#7dcef5' : c.bg === '#fcf0c0' ? '#f5d96b' : '#ffdbb5'}` }
+                : { color: '#6b5748' }
+              }
             >
-              <Icon className="w-5 h-5 shrink-0" />
+              <div style={{ background: 'rgba(255,255,255,0.7)', padding: 6, borderRadius: 8 }}>
+                <Icon className="w-4 h-4" />
+              </div>
               <span>{item.label}</span>
             </NavLink>
           );
         })}
       </nav>
+
+      {/* Logout */}
+      <div className="p-3 shrink-0" style={{ borderTop: '1.5px solid #f0e8e0' }}>
+        <button
+          onClick={logout}
+          style={{ background: '#fff4e7', color: '#9a4a00', border: '1.5px solid #ffdbb5' }}
+          className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-bold hover:opacity-80 transition-opacity"
+        >
+          <LogOut className="w-4 h-4" />
+          <span>Keluar</span>
+        </button>
+      </div>
     </aside>
   );
 };

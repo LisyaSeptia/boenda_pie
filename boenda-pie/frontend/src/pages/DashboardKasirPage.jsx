@@ -3,111 +3,111 @@ import { useAuth } from '../context/AuthContext';
 import { transactionService } from '../services/transactionService';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { formatRupiah, formatDate } from '../utils/formatters';
+import { getCachedData, setCachedData } from '../utils/dataCache';
 import { ShoppingBag, Receipt, ArrowRight, CheckCircle2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 const DashboardKasirPage = () => {
   const { user } = useAuth();
-  const [transactions, setTransactions] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [transactions, setTransactions] = useState(() => getCachedData('kasirTxs') || []);
+  const [loading, setLoading] = useState(() => !getCachedData('kasirTxs'));
 
-  useEffect(() => {
-    fetchMyTransactions();
-  }, []);
+  useEffect(() => { fetchMyTransactions(); }, []);
 
   const fetchMyTransactions = async () => {
     try {
-      setLoading(true);
+      if (transactions.length === 0) setLoading(true);
       const res = await transactionService.getAll({ cashierId: user?.id });
       if (res.success) {
         setTransactions(res.data);
+        setCachedData('kasirTxs', res.data);
       }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
+    } catch (err) { console.error(err); }
+    finally { setLoading(false); }
   };
 
   const todayTxs = transactions.filter((tx) => {
-    const txDate = new Date(tx.date).toDateString();
-    const today = new Date().toDateString();
-    return txDate === today;
+    return new Date(tx.date).toDateString() === new Date().toDateString();
   });
-
   const totalTodaySales = todayTxs.reduce((sum, tx) => sum + tx.totalAmount, 0);
 
-  if (loading) return <LoadingSpinner text="Memuat dashboard kasir..." />;
+  if (loading && transactions.length === 0) return <LoadingSpinner text="Memuat dashboard kasir..." />;
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto">
-      {/* Banner POS Kasir */}
-      <div className="bg-gradient-to-r from-amber-500 to-amber-600 rounded-3xl p-6 text-slate-950 shadow-xl shadow-amber-500/10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20, maxWidth: 860, margin: '0 auto' }}>
+      {/* Banner */}
+      <div style={{
+        background: 'linear-gradient(135deg, #f8cee8 0%, #beeaff 50%, #fcf0c0 100%)',
+        borderRadius: 24, padding: '24px 28px',
+        border: '2px solid #f8cee8',
+        boxShadow: '0 4px 20px rgba(248,206,232,0.25)',
+        display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 16
+      }}>
         <div>
-          <span className="px-3 py-1 bg-slate-950 text-amber-400 font-bold text-xs rounded-full inline-block mb-2">
-            Mode Kasir Aktif
+          <span style={{ display: 'inline-block', padding: '4px 12px', background: 'rgba(255,255,255,0.6)', borderRadius: 20, fontSize: 11, fontWeight: 700, color: '#a0336e', marginBottom: 8 }}>
+            ✨ Mode Kasir Aktif
           </span>
-          <h2 className="text-2xl font-black tracking-tight">Halo, {user?.name || user?.username}!</h2>
-          <p className="text-xs font-semibold text-slate-900/80 mt-1">
-            Siap memproses pesanan pie pelanggan Boenda Pie Purwokerto.
-          </p>
+          <h2 style={{ fontSize: 22, fontWeight: 900, color: '#3d2c1e', margin: '0 0 4px' }}>Halo, {user?.name || user?.username}!</h2>
+          <p style={{ fontSize: 12, color: '#6b5748', margin: 0 }}>Siap memproses pesanan pie pelanggan Boenda Pie Purwokerto.</p>
         </div>
-        <Link
-          to="/pos"
-          className="px-6 py-3.5 bg-slate-950 hover:bg-slate-900 text-amber-400 font-extrabold text-sm rounded-2xl shadow-lg transition-all flex items-center gap-2 cursor-pointer"
-        >
-          <ShoppingBag className="w-5 h-5" />
+        <Link to="/pos" style={{
+          display: 'flex', alignItems: 'center', gap: 8, padding: '10px 22px',
+          background: 'white', borderRadius: 14, fontWeight: 800, fontSize: 13,
+          color: '#a0336e', border: '1.5px solid #f8cee8', textDecoration: 'none',
+          boxShadow: '0 2px 10px rgba(248,206,232,0.3)', whiteSpace: 'nowrap'
+        }}>
+          <ShoppingBag style={{ width: 16, height: 16 }} />
           <span>Buka Aplikasi POS</span>
         </Link>
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center shrink-0">
-            <Receipt className="w-6 h-6" />
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>
+        <div style={{ background: 'linear-gradient(135deg, #fffbea 0%, #fcf0c0 100%)', padding: '18px 20px', borderRadius: 20, border: '1.5px solid #f5d96b', boxShadow: '0 2px 12px rgba(252,240,192,0.35)', display: 'flex', alignItems: 'center', gap: 16 }}>
+          <div style={{ width: 48, height: 48, borderRadius: 14, background: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 2px 8px rgba(245,217,107,0.3)' }}>
+            <Receipt style={{ width: 22, height: 22, color: '#8a6000' }} />
           </div>
           <div>
-            <p className="text-xs font-semibold text-slate-500 uppercase">Transaksi Anda Hari Ini</p>
-            <h3 className="text-xl font-extrabold text-slate-800">{todayTxs.length} Transaksi</h3>
+            <p style={{ fontSize: 11, fontWeight: 600, color: '#7a5500', textTransform: 'uppercase', letterSpacing: 0.5, margin: '0 0 4px' }}>Transaksi Anda Hari Ini</p>
+            <h3 style={{ fontSize: 20, fontWeight: 900, color: '#3d2c1e', margin: 0 }}>{todayTxs.length} Transaksi</h3>
           </div>
         </div>
 
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0">
-            <CheckCircle2 className="w-6 h-6" />
+        <div style={{ background: 'linear-gradient(135deg, #e8f7ff 0%, #beeaff 100%)', padding: '18px 20px', borderRadius: 20, border: '1.5px solid #7dcef5', boxShadow: '0 2px 12px rgba(190,234,255,0.35)', display: 'flex', alignItems: 'center', gap: 16 }}>
+          <div style={{ width: 48, height: 48, borderRadius: 14, background: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 2px 8px rgba(125,206,245,0.3)' }}>
+            <CheckCircle2 style={{ width: 22, height: 22, color: '#1a6fa0' }} />
           </div>
           <div>
-            <p className="text-xs font-semibold text-slate-500 uppercase">Total Omset Kasir Hari Ini</p>
-            <h3 className="text-xl font-extrabold text-emerald-700">{formatRupiah(totalTodaySales)}</h3>
+            <p style={{ fontSize: 11, fontWeight: 600, color: '#1a5a80', textTransform: 'uppercase', letterSpacing: 0.5, margin: '0 0 4px' }}>Total Omset Kasir Hari Ini</p>
+            <h3 style={{ fontSize: 20, fontWeight: 900, color: '#3d2c1e', margin: 0 }}>{formatRupiah(totalTodaySales)}</h3>
           </div>
         </div>
       </div>
 
-      {/* Recent Transactions List */}
-      <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-xs">
-        <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
-          <h3 className="font-bold text-slate-900 text-base">Riwayat Transaksi Terakhir</h3>
-          <Link to="/transactions" className="text-xs font-semibold text-amber-600 hover:text-amber-700 flex items-center gap-1">
-            Lihat Semua <ArrowRight className="w-3.5 h-3.5" />
+      {/* Recent Transactions */}
+      <div style={{ background: 'white', borderRadius: 20, border: '1.5px solid #f8cee8', padding: '18px 20px', boxShadow: '0 2px 12px rgba(248,206,232,0.12)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 12, borderBottom: '1.5px solid #fff4f7', marginBottom: 16 }}>
+          <h3 style={{ fontWeight: 800, color: '#3d2c1e', fontSize: 14, margin: 0 }}>Riwayat Transaksi Terakhir</h3>
+          <Link to="/transactions" style={{ fontSize: 11, fontWeight: 700, color: '#a0336e', display: 'flex', alignItems: 'center', gap: 4, textDecoration: 'none' }}>
+            Lihat Semua <ArrowRight style={{ width: 13, height: 13 }} />
           </Link>
         </div>
-
-        <div className="space-y-3">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {transactions.slice(0, 5).map((tx) => (
-            <div key={tx._id} className="p-3.5 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-between text-xs">
+            <div key={tx._id} style={{ padding: '12px 14px', borderRadius: 14, background: '#fffaf5', border: '1px solid #f0e8e0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 12 }}>
               <div>
-                <p className="font-extrabold text-slate-800">{tx.invoiceNumber}</p>
-                <p className="text-slate-500">{formatDate(tx.date)} • {tx.items.length} item</p>
+                <p style={{ fontWeight: 800, color: '#3d2c1e', margin: '0 0 3px' }}>{tx.invoiceNumber}</p>
+                <p style={{ color: '#9b8b7c', margin: 0 }}>{formatDate(tx.date)} • {tx.items.length} item</p>
               </div>
-              <div className="text-right">
-                <p className="font-black text-amber-700 text-sm">{formatRupiah(tx.totalAmount)}</p>
-                <span className="inline-block px-2 py-0.5 bg-amber-100 text-amber-800 text-[10px] font-bold rounded">
-                  {tx.paymentMethod}
-                </span>
+              <div style={{ textAlign: 'right' }}>
+                <p style={{ fontWeight: 900, color: '#a0336e', fontSize: 14, margin: '0 0 3px' }}>{formatRupiah(tx.totalAmount)}</p>
+                <span style={{ display: 'inline-block', padding: '2px 8px', background: '#beeaff', color: '#1a6fa0', fontSize: 11, fontWeight: 700, borderRadius: 20 }}>{tx.paymentMethod}</span>
               </div>
             </div>
           ))}
+          {transactions.length === 0 && (
+            <p style={{ textAlign: 'center', color: '#9b8b7c', padding: '16px 0', margin: 0 }}>Belum ada transaksi hari ini.</p>
+          )}
         </div>
       </div>
     </div>

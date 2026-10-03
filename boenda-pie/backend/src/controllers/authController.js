@@ -22,12 +22,12 @@ const login = async (req, res, next) => {
     });
 
     if (!user) {
-      return errorResponse(res, 401, 'Username atau password salah');
+      return errorResponse(res, 401, 'Username/Email tidak ditemukan');
     }
 
     const isMatch = await user.matchPassword(password);
     if (!isMatch) {
-      return errorResponse(res, 401, 'Username atau password salah');
+      return errorResponse(res, 401, 'Password salah');
     }
 
     if (!user.isActive) {
@@ -73,8 +73,77 @@ const getMe = async (req, res) => {
   });
 };
 
+// @desc    Update user profile name (email & username terkunci permanen untuk login)
+// @route   PUT /api/auth/profile
+// @access  Private
+const updateProfile = async (req, res, next) => {
+  try {
+    const { name } = req.body;
+    const user = await User.findById(req.user._id);
+
+    if (!user) {
+      return errorResponse(res, 404, 'Pengguna tidak ditemukan');
+    }
+
+    if (name && name.trim()) {
+      user.name = name.trim();
+    }
+
+    const updatedUser = await user.save();
+
+    return successResponse(res, 200, 'Nama profil berhasil diperbarui', {
+      user: {
+        id: updatedUser._id,
+        username: updatedUser.username,
+        email: updatedUser.email,
+        name: updatedUser.name,
+        role: updatedUser.role
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+
+// @desc    Change password
+// @route   PUT /api/auth/change-password
+// @access  Private
+const updatePassword = async (req, res, next) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+
+    if (!currentPassword || !newPassword) {
+      return errorResponse(res, 400, 'Password lama dan password baru wajib diisi');
+    }
+
+    if (newPassword.length < 6) {
+      return errorResponse(res, 400, 'Password baru minimal 6 karakter');
+    }
+
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      return errorResponse(res, 404, 'Pengguna tidak ditemukan');
+    }
+
+    const isMatch = await user.matchPassword(currentPassword);
+    if (!isMatch) {
+      return errorResponse(res, 400, 'Password lama yang dimasukkan tidak cocok');
+    }
+
+    user.password = newPassword;
+    await user.save();
+
+    return successResponse(res, 200, 'Password berhasil diperbarui');
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   login,
   logout,
-  getMe
+  getMe,
+  updateProfile,
+  updatePassword
 };

@@ -4,13 +4,14 @@ import LoadingSpinner from '../components/LoadingSpinner';
 import Modal from '../components/Modal';
 import Toast from '../components/Toast';
 import { formatRupiah } from '../utils/formatters';
+import { getCachedData, setCachedData } from '../utils/dataCache';
 import { Plus, Search, Edit3, Trash2, Package, Filter } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 const ProductsPage = () => {
   const { isAdmin } = useAuth();
-  const [products, setProducts] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [products, setProducts] = useState(() => getCachedData('products') || []);
+  const [loading, setLoading] = useState(() => !getCachedData('products'));
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('');
@@ -27,7 +28,7 @@ const ProductsPage = () => {
   const [formData, setFormData] = useState({
     code: '',
     name: '',
-    category: 'Pie Susu',
+    category: 'Food',
     price: '',
     stock: '',
     minStock: '5',
@@ -42,7 +43,7 @@ const ProductsPage = () => {
 
   const fetchProducts = async () => {
     try {
-      setLoading(true);
+      if (products.length === 0) setLoading(true);
       const res = await productService.getAll({
         search,
         category: selectedCategory,
@@ -50,6 +51,9 @@ const ProductsPage = () => {
       });
       if (res.success) {
         setProducts(res.data);
+        if (!search && !selectedCategory && !selectedStatus) {
+          setCachedData('products', res.data);
+        }
       }
     } catch (err) {
       showToast(err.response?.data?.message || 'Gagal memuat daftar produk', 'error');
@@ -68,7 +72,7 @@ const ProductsPage = () => {
     setFormData({
       code: `PIE-${Math.floor(100 + Math.random() * 900)}`,
       name: '',
-      category: 'Pie Susu',
+      category: 'Food',
       price: '',
       stock: '0',
       minStock: '5',
@@ -130,26 +134,31 @@ const ProductsPage = () => {
     }
   };
 
-  const categories = ['Pie Susu', 'Pie Special', 'Pie Flavor', 'Kue Lainnya'];
+  const categories = ['Food', 'Drink'];
 
   return (
     <div className="space-y-6">
       <Toast message={toast.message} type={toast.type} onClose={() => setToast({ message: '', type: 'success' })} />
 
       {/* Top Header Controls */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
-        <div>
-          <h2 className="text-xl font-bold text-slate-900">Katalog Data Produk</h2>
-          <p className="text-xs text-slate-500">Kelola varian pie, harga jual, dan batas minimal stok.</p>
+      <div style={{ background: 'white', borderRadius: 24, padding: '20px 24px', border: '1.5px solid #e2e8f0', boxShadow: '0 4px 20px rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          <div style={{ width: 46, height: 46, borderRadius: 14, background: '#fffbea', border: '1.5px solid #f5d96b', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <Package style={{ width: 22, height: 22, color: '#8a6000' }} />
+          </div>
+          <div>
+            <h2 style={{ fontSize: 18, fontWeight: 900, color: '#3d2c1e', margin: 0 }}>Katalog Data Produk</h2>
+            <p style={{ fontSize: 12, color: '#475569', margin: 0, marginTop: 2, fontWeight: 500 }}>Kelola varian pie, harga jual, dan batas minimal stok.</p>
+          </div>
         </div>
 
         {isAdmin && (
           <button
             onClick={handleOpenAddModal}
-            className="px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs rounded-xl shadow-md transition-colors flex items-center gap-2 cursor-pointer"
+            className="px-4 py-2.5 bg-[#fcf0c0] text-[#8a6000] border border-[#f5d96b] hover:bg-[#f9e88a] font-extrabold text-xs rounded-2xl shadow-xs transition-all flex items-center gap-2 cursor-pointer active:scale-95"
           >
             <Plus className="w-4 h-4" />
-            <span>Tambah Produk</span>
+            <span>Tambah Produk Baru</span>
           </button>
         )}
       </div>
@@ -157,20 +166,20 @@ const ProductsPage = () => {
       {/* Search & Filters */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="relative">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+          <Search className="w-4 h-4 text-[#8a6000] absolute left-3.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Cari nama atau kode produk..."
-            className="w-full bg-white border border-slate-200 rounded-xl py-2.5 pl-10 pr-4 text-xs focus:outline-none focus:border-amber-500 shadow-xs"
+            className="w-full bg-white border border-[#fcf0c0] rounded-xl py-2.5 pl-10 pr-4 text-xs focus:outline-none focus:border-[#f5d96b] shadow-xs"
           />
         </div>
 
         <select
           value={selectedCategory}
           onChange={(e) => setSelectedCategory(e.target.value)}
-          className="bg-white border border-slate-200 rounded-xl py-2.5 px-3 text-xs focus:outline-none focus:border-amber-500 shadow-xs text-slate-700"
+          className="bg-white border border-[#fcf0c0] rounded-xl py-2.5 px-3 text-xs focus:outline-none focus:border-[#f5d96b] shadow-xs text-slate-700"
         >
           <option value="">Semua Kategori</option>
           {categories.map((c) => (
@@ -181,7 +190,7 @@ const ProductsPage = () => {
         <select
           value={selectedStatus}
           onChange={(e) => setSelectedStatus(e.target.value)}
-          className="bg-white border border-slate-200 rounded-xl py-2.5 px-3 text-xs focus:outline-none focus:border-amber-500 shadow-xs text-slate-700"
+          className="bg-white border border-[#fcf0c0] rounded-xl py-2.5 px-3 text-xs focus:outline-none focus:border-[#f5d96b] shadow-xs text-slate-700"
         >
           <option value="">Semua Status Stok</option>
           <option value="AVAILABLE">Tersedia (Aman)</option>
@@ -191,7 +200,7 @@ const ProductsPage = () => {
       </div>
 
       {/* Products Table */}
-      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+      <div className="bg-white rounded-2xl border border-[#fcf0c0] shadow-xs overflow-hidden">
         {loading ? (
           <LoadingSpinner text="Memuat katalog produk..." />
         ) : products.length === 0 ? (
@@ -200,57 +209,61 @@ const ProductsPage = () => {
             <p className="font-semibold text-sm">Tidak ada produk ditemukan.</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs text-slate-700">
-              <thead className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200 uppercase">
+          <div className="w-full overflow-x-auto">
+            <table className="w-full text-left text-xs text-slate-700 min-w-[650px]">
+              <thead className="bg-[#fffbea] text-[#8a6000] font-extrabold border-b-2 border-[#f5d96b] uppercase tracking-wider text-[11px]">
                 <tr>
-                  <th className="p-4">Kode</th>
+                  <th className="p-4 whitespace-nowrap">Kode</th>
                   <th className="p-4">Nama Produk</th>
-                  <th className="p-4">Kategori</th>
-                  <th className="p-4">Harga Jual</th>
-                  <th className="p-4">Stok Saat Ini</th>
-                  <th className="p-4">Status</th>
-                  {isAdmin && <th className="p-4 text-center">Aksi</th>}
+                  <th className="p-4 whitespace-nowrap">Kategori</th>
+                  <th className="p-4 whitespace-nowrap">Harga Jual</th>
+                  <th className="p-4 whitespace-nowrap">Stok Saat Ini</th>
+                  <th className="p-4 whitespace-nowrap">Status</th>
+                  {isAdmin && <th className="p-4 text-center whitespace-nowrap">Aksi</th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {products.map((prod) => (
-                  <tr key={prod._id} className="hover:bg-slate-50/80 transition-colors">
-                    <td className="p-4 font-bold text-slate-900">{prod.code}</td>
-                    <td className="p-4">
-                      <div className="font-bold text-slate-800">{prod.name}</div>
-                      <div className="text-[11px] text-slate-400">{prod.description || '-'}</div>
+                  <tr key={prod._id} className="hover:bg-amber-50/30 transition-colors">
+                    <td className="p-4 font-bold text-slate-900 whitespace-nowrap">{prod.code}</td>
+                    <td className="p-4 min-w-[200px]">
+                      <div className="font-extrabold text-slate-900">{prod.name}</div>
+                      <div className="text-xs text-slate-600 font-medium mt-0.5 leading-relaxed">{prod.description || '-'}</div>
                     </td>
-                    <td className="p-4">
-                      <span className="px-2.5 py-1 bg-slate-100 font-medium rounded-lg text-[11px]">
-                        {prod.category}
+                    <td className="p-4 whitespace-nowrap">
+                      <span className={`inline-flex items-center gap-1.5 px-3 py-1 font-bold rounded-lg text-[11px] border whitespace-nowrap ${
+                        (prod.category || '').toLowerCase() === 'drink'
+                          ? 'bg-sky-50 text-sky-700 border-sky-200'
+                          : 'bg-pink-50 text-pink-700 border-pink-200'
+                      }`}>
+                        {prod.category === 'Drink' ? '🥤 Drink' : '🍕 Food'}
                       </span>
                     </td>
-                    <td className="p-4 font-extrabold text-amber-700 text-sm">
+                    <td className="p-4 font-black text-slate-900 text-sm whitespace-nowrap">
                       {formatRupiah(prod.price)}
                     </td>
-                    <td className="p-4 font-bold text-slate-800">
+                    <td className="p-4 font-bold text-slate-800 whitespace-nowrap">
                       {prod.stock} {prod.unit}
                     </td>
-                    <td className="p-4">
+                    <td className="p-4 whitespace-nowrap">
                       {prod.status === 'AVAILABLE' && (
-                        <span className="px-2.5 py-1 bg-emerald-100 text-emerald-800 text-[11px] font-bold rounded-full">
+                        <span className="px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 text-[11px] font-extrabold rounded-full whitespace-nowrap">
                           Tersedia
                         </span>
                       )}
                       {prod.status === 'LOW_STOCK' && (
-                        <span className="px-2.5 py-1 bg-amber-100 text-amber-800 text-[11px] font-bold rounded-full">
+                        <span className="px-2.5 py-1 bg-amber-50 text-amber-800 border border-amber-200 text-[11px] font-extrabold rounded-full whitespace-nowrap">
                           Stok Rendah
                         </span>
                       )}
                       {prod.status === 'OUT_OF_STOCK' && (
-                        <span className="px-2.5 py-1 bg-rose-100 text-rose-800 text-[11px] font-bold rounded-full">
+                        <span className="px-2.5 py-1 bg-rose-50 text-rose-700 border border-rose-200 text-[11px] font-extrabold rounded-full whitespace-nowrap">
                           Habis
                         </span>
                       )}
                     </td>
                     {isAdmin && (
-                      <td className="p-4 text-center">
+                      <td className="p-4 text-center whitespace-nowrap">
                         <div className="flex items-center justify-center gap-2">
                           <button
                             onClick={() => handleOpenEditModal(prod)}
@@ -292,7 +305,7 @@ const ProductsPage = () => {
                 disabled={!!editProduct}
                 value={formData.code}
                 onChange={(e) => setFormData({ ...formData, code: e.target.value })}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2 px-3 focus:outline-none focus:border-amber-500 uppercase font-bold"
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2 px-3 focus:outline-none focus:border-[#f5d96b] uppercase font-bold"
               />
             </div>
             <div>
@@ -300,7 +313,7 @@ const ProductsPage = () => {
               <select
                 value={formData.category}
                 onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                className="w-full bg-white border border-slate-200 rounded-xl py-2 px-3 focus:outline-none focus:border-amber-500"
+                className="w-full bg-white border border-slate-200 rounded-xl py-2 px-3 focus:outline-none focus:border-[#f5d96b]"
               >
                 {categories.map((c) => (
                   <option key={c} value={c}>{c}</option>
@@ -317,7 +330,7 @@ const ProductsPage = () => {
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               placeholder="Contoh: Pie Susu Original"
-              className="w-full bg-white border border-slate-200 rounded-xl py-2 px-3 focus:outline-none focus:border-amber-500"
+              className="w-full bg-white border border-slate-200 rounded-xl py-2 px-3 focus:outline-none focus:border-[#f5d96b]"
             />
           </div>
 
@@ -331,7 +344,7 @@ const ProductsPage = () => {
                 value={formData.price}
                 onChange={(e) => setFormData({ ...formData, price: e.target.value })}
                 placeholder="2500"
-                className="w-full bg-white border border-slate-200 rounded-xl py-2 px-3 focus:outline-none focus:border-amber-500"
+                className="w-full bg-white border border-slate-200 rounded-xl py-2 px-3 focus:outline-none focus:border-[#f5d96b]"
               />
             </div>
 
@@ -343,7 +356,7 @@ const ProductsPage = () => {
                 required
                 value={formData.stock}
                 onChange={(e) => setFormData({ ...formData, stock: e.target.value })}
-                className="w-full bg-white border border-slate-200 rounded-xl py-2 px-3 focus:outline-none focus:border-amber-500"
+                className="w-full bg-white border border-slate-200 rounded-xl py-2 px-3 focus:outline-none focus:border-[#f5d96b]"
               />
             </div>
 
@@ -355,7 +368,7 @@ const ProductsPage = () => {
                 required
                 value={formData.minStock}
                 onChange={(e) => setFormData({ ...formData, minStock: e.target.value })}
-                className="w-full bg-white border border-slate-200 rounded-xl py-2 px-3 focus:outline-none focus:border-amber-500"
+                className="w-full bg-white border border-slate-200 rounded-xl py-2 px-3 focus:outline-none focus:border-[#f5d96b]"
               />
             </div>
           </div>
@@ -367,7 +380,7 @@ const ProductsPage = () => {
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               placeholder="Keterangan varian pie..."
-              className="w-full bg-white border border-slate-200 rounded-xl py-2 px-3 focus:outline-none focus:border-amber-500"
+              className="w-full bg-white border border-slate-200 rounded-xl py-2 px-3 focus:outline-none focus:border-[#f5d96b]"
             />
           </div>
 
@@ -382,7 +395,7 @@ const ProductsPage = () => {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded-xl shadow-xs"
+              className="px-4 py-2 bg-[#fcf0c0] text-[#8a6000] border border-[#f5d96b] hover:bg-[#f9e88a] font-extrabold rounded-2xl shadow-xs"
             >
               {isSubmitting ? 'Memproses...' : 'Simpan Produk'}
             </button>

@@ -6,11 +6,20 @@ import LoadingSpinner from '../components/LoadingSpinner';
 import Modal from '../components/Modal';
 import Toast from '../components/Toast';
 import { formatDate } from '../utils/formatters';
+import { getCachedData, setCachedData } from '../utils/dataCache';
 import { ArrowUpDown, Plus, Search, Filter, ArrowUpRight, ArrowDownRight, RefreshCw } from 'lucide-react';
 
+const TYPE_LABEL = {
+  STOCK_IN:   'Stok Masuk',
+  STOCK_OUT:  'Stok Keluar',
+  SALE:       'Penjualan',
+  PRODUCTION: 'Produksi',
+  ADJUSTMENT: 'Penyesuaian',
+};
+
 const StockMovementsPage = () => {
-  const [movements, setMovements] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [movements, setMovements] = useState(() => getCachedData('stockMovements') || []);
+  const [loading, setLoading] = useState(() => !getCachedData('stockMovements'));
   const [search, setSearch] = useState('');
   const [itemType, setItemType] = useState('');
   const [type, setType] = useState('');
@@ -40,10 +49,11 @@ const StockMovementsPage = () => {
 
   const fetchMovements = async () => {
     try {
-      setLoading(true);
+      if (movements.length === 0) setLoading(true);
       const res = await stockService.getMovements({ search, itemType, type });
       if (res.success) {
         setMovements(res.data);
+        if (!search && !itemType && !type) setCachedData('stockMovements', res.data);
       }
     } catch (err) {
       showToast(err.response?.data?.message || 'Gagal memuat pergerakan stok', 'error');
@@ -110,15 +120,20 @@ const StockMovementsPage = () => {
       <Toast message={toast.message} type={toast.type} onClose={() => setToast({ message: '', type: 'success' })} />
 
       {/* Header Controls */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
-        <div>
-          <h2 className="text-xl font-bold text-slate-900">Riwayat & Audit Pergerakan Stok</h2>
-          <p className="text-xs text-slate-500">Jejak audit masuk, keluar, produksi, penjualan, dan penyesuaian stok.</p>
+      <div style={{ background: 'white', borderRadius: 24, padding: '20px 24px', border: '1.5px solid #e2e8f0', boxShadow: '0 4px 20px rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          <div style={{ width: 46, height: 46, borderRadius: 14, background: '#fffbea', border: '1.5px solid #f5d96b', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <ArrowUpDown style={{ width: 22, height: 22, color: '#8a6000' }} />
+          </div>
+          <div>
+            <h2 style={{ fontSize: 18, fontWeight: 900, color: '#3d2c1e', margin: 0 }}>Aktivitas Stok</h2>
+            <p style={{ fontSize: 12, color: '#475569', margin: 0, marginTop: 2, fontWeight: 500 }}>Audit dan pantau seluruh catatan aktivitas keluar-masuk, produksi, dan penyesuaian stok.</p>
+          </div>
         </div>
 
         <button
           onClick={() => setIsModalOpen(true)}
-          className="px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs rounded-xl shadow-md transition-colors flex items-center gap-2 cursor-pointer"
+          className="px-4 py-2.5 bg-[#fcf0c0] text-[#8a6000] border border-[#f5d96b] hover:bg-[#f9e88a] font-extrabold text-xs rounded-2xl shadow-xs transition-all flex items-center gap-2 cursor-pointer active:scale-95"
         >
           <Plus className="w-4 h-4" />
           <span>Penyesuaian Manual (Adjustment)</span>
@@ -128,22 +143,22 @@ const StockMovementsPage = () => {
       {/* Filters */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="relative">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+          <Search className="w-4 h-4 text-[#8a6000] absolute left-3.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Cari nama item atau no referensi..."
-            className="w-full bg-white border border-slate-200 rounded-xl py-2.5 pl-10 pr-4 text-xs focus:outline-none focus:border-amber-500 shadow-xs"
+            className="w-full bg-white border border-[#fcf0c0] rounded-xl py-2.5 pl-10 pr-4 text-xs focus:outline-none focus:border-[#f5d96b] shadow-xs"
           />
         </div>
 
         <select
           value={itemType}
           onChange={(e) => setItemType(e.target.value)}
-          className="bg-white border border-slate-200 rounded-xl py-2.5 px-3 text-xs focus:outline-none focus:border-amber-500 text-slate-700"
+          className="bg-white border border-[#fcf0c0] rounded-xl py-2.5 px-3 text-xs focus:outline-none focus:border-[#f5d96b] text-slate-700"
         >
-          <option value="">Semua Kategori Item (Produk & Bahan)</option>
+          <option value="">Semua Kategori Item (Produk &amp; Bahan)</option>
           <option value="PRODUCT">Produk Pie (Jadi)</option>
           <option value="MATERIAL">Bahan Baku</option>
         </select>
@@ -151,71 +166,86 @@ const StockMovementsPage = () => {
         <select
           value={type}
           onChange={(e) => setType(e.target.value)}
-          className="bg-white border border-slate-200 rounded-xl py-2.5 px-3 text-xs focus:outline-none focus:border-amber-500 text-slate-700"
+          className="bg-white border border-[#fcf0c0] rounded-xl py-2.5 px-3 text-xs focus:outline-none focus:border-[#f5d96b] text-slate-700"
         >
-          <option value="">Semua Jenis Movement</option>
-          <option value="STOCK_IN">Stok Masuk (STOCK_IN)</option>
-          <option value="STOCK_OUT">Stok Keluar (STOCK_OUT)</option>
-          <option value="PRODUCTION">Produksi (PRODUCTION)</option>
-          <option value="SALE">Penjualan Kasir (SALE)</option>
-          <option value="ADJUSTMENT">Penyesuaian (ADJUSTMENT)</option>
+          <option value="">Semua Jenis Aktivitas</option>
+          <option value="STOCK_IN">Stok Masuk</option>
+          <option value="STOCK_OUT">Stok Keluar</option>
+          <option value="PRODUCTION">Produksi</option>
+          <option value="SALE">Penjualan</option>
+          <option value="ADJUSTMENT">Penyesuaian</option>
         </select>
       </div>
 
       {/* Movements Table */}
-      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+      <div className="bg-white rounded-2xl border border-[#fcf0c0] shadow-xs overflow-hidden w-full max-w-full">
         {loading ? (
-          <LoadingSpinner text="Memuat riwayat stok movement..." />
+          <LoadingSpinner text="Memuat aktivitas stok..." />
         ) : movements.length === 0 ? (
           <div className="p-12 text-center text-slate-400">
             <ArrowUpDown className="w-12 h-12 mx-auto mb-3 text-slate-300" />
-            <p className="font-semibold text-sm">Belum ada riwayat pergerakan stok recorded.</p>
+            <p className="font-semibold text-sm">Belum ada riwayat aktivitas stok tercatat.</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs text-slate-700">
-              <thead className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200 uppercase">
+          <div className="w-full overflow-x-auto">
+            <table className="w-full text-left text-xs text-slate-700 min-w-[700px]">
+              <thead className="bg-[#fffbea] text-[#8a6000] font-extrabold border-b-2 border-[#f5d96b] uppercase tracking-wider text-[11px]">
                 <tr>
-                  <th className="p-4">Waktu</th>
-                  <th className="p-4">Tipe Item</th>
-                  <th className="p-4">Nama Item</th>
-                  <th className="p-4">Jenis Perubahan</th>
-                  <th className="p-4">Perubahan Qty</th>
-                  <th className="p-4">Stok Sebelum -&gt; Sesudah</th>
-                  <th className="p-4">No. Referensi / Ket</th>
+                  <th className="px-3 py-3 whitespace-nowrap">Waktu</th>
+                  <th className="px-2 py-3">Item &amp; Tipe</th>
+                  <th className="px-2 py-3 whitespace-nowrap">Jenis</th>
+                  <th className="px-2 py-3 whitespace-nowrap">Perubahan</th>
+                  <th className="px-2 py-3 whitespace-nowrap">Stok (Awal &rarr; Akhir)</th>
+                  <th className="px-2 py-3">No. Ref &amp; Ket</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {movements.map((mov) => {
                   const isPositive = mov.quantity > 0;
                   return (
-                    <tr key={mov._id} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="p-4 text-slate-500 font-medium">{formatDate(mov.createdAt)}</td>
-                      <td className="p-4">
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                          mov.itemType === 'PRODUCT' ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800'
-                        }`}>
-                          {mov.itemType}
-                        </span>
+                    <tr key={mov._id} className="hover:bg-amber-50/30 transition-colors">
+                      <td className="px-3.5 py-3 align-top text-slate-600 font-medium text-[11px]">
+                        {formatDate(mov.createdAt)}
                       </td>
-                      <td className="p-4 font-bold text-slate-900">{mov.itemName}</td>
-                      <td className="p-4">
-                        <span className="font-semibold text-slate-700">{mov.type}</span>
-                      </td>
-                      <td className="p-4">
-                        <div className={`font-black text-xs flex items-center gap-1 ${
-                          isPositive ? 'text-emerald-600' : 'text-rose-600'
-                        }`}>
-                          {isPositive ? <ArrowUpRight className="w-3.5 h-3.5" /> : <ArrowDownRight className="w-3.5 h-3.5" />}
-                          {isPositive ? `+${mov.quantity}` : mov.quantity} {mov.unit}
+                      <td className="px-2 py-3 align-top">
+                        <div className="font-bold text-slate-900 leading-snug break-words">{mov.itemName}</div>
+                        <div className="mt-1">
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-extrabold border ${
+                            mov.itemType === 'PRODUCT' ? 'bg-pink-50 text-pink-700 border-pink-200' : 'bg-sky-50 text-sky-700 border-sky-200'
+                          }`}>
+                            {mov.itemType === 'PRODUCT' ? 'Produk Pie' : 'Bahan Baku'}
+                          </span>
                         </div>
                       </td>
-                      <td className="p-4 text-slate-600 font-mono">
-                        {mov.stockBefore} -&gt; <strong className="text-slate-900">{mov.stockAfter}</strong> {mov.unit}
+                      <td className="px-2 py-3 align-top">
+                        <span className={`font-extrabold px-2 py-0.5 rounded text-[11px] whitespace-nowrap ${
+                          mov.type === 'STOCK_IN'   ? 'bg-emerald-50 text-emerald-700' :
+                          mov.type === 'STOCK_OUT'  ? 'bg-rose-50 text-rose-700' :
+                          mov.type === 'SALE'       ? 'bg-blue-50 text-blue-700' :
+                          mov.type === 'PRODUCTION' ? 'bg-purple-50 text-purple-700' :
+                          'bg-amber-50 text-amber-700'
+                        }`}>
+                          {TYPE_LABEL[mov.type] || mov.type}
+                        </span>
                       </td>
-                      <td className="p-4">
-                        <div className="font-semibold text-slate-800">{mov.referenceNo || '-'}</div>
-                        <div className="text-[11px] text-slate-400">{mov.notes}</div>
+                      <td className="px-3.5 py-3 align-top">
+                        <div className={`font-black text-xs inline-flex items-center gap-1 ${
+                          isPositive ? 'text-emerald-600' : 'text-rose-600'
+                        }`}>
+                          {isPositive ? <ArrowUpRight className="w-3.5 h-3.5 shrink-0" /> : <ArrowDownRight className="w-3.5 h-3.5 shrink-0" />}
+                          <span>{isPositive ? `+${mov.quantity}` : mov.quantity} {mov.unit}</span>
+                        </div>
+                      </td>
+                      <td className="px-3.5 py-3 align-top text-slate-600 font-mono text-xs">
+                        <span>{mov.stockBefore} &rarr; </span>
+                        <strong className="text-slate-900 font-black">{mov.stockAfter}</strong>
+                        <span className="text-[11px] ml-1">{mov.unit}</span>
+                      </td>
+                      <td className="px-3.5 py-3 align-top">
+                        <div className="font-semibold text-slate-800 break-words text-xs">{mov.referenceNo || '-'}</div>
+                        {mov.notes && (
+                          <div className="text-[11px] text-slate-600 font-medium mt-0.5 leading-snug break-words">{mov.notes}</div>
+                        )}
                       </td>
                     </tr>
                   );

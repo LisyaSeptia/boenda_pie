@@ -133,7 +133,7 @@ const createTransaction = async (req, res, next) => {
       paymentMethod: paymentMethod || 'CASH',
       status: 'COMPLETED',
       cashierId: req.user._id,
-      cashierName: req.user.name || req.user.username
+      cashierName: (req.body.cashierName && req.body.cashierName.trim()) || req.user.name || req.user.username
     });
 
     await transaction.save(sessionOptions);

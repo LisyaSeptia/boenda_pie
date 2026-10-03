@@ -1,38 +1,37 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Menu, LogOut, User as UserIcon } from 'lucide-react';
+import { Menu, User as UserIcon } from 'lucide-react';
 
 const Navbar = ({ toggleSidebar, title = 'Boenda Pie Purwokerto' }) => {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
 
   return (
-    <header className="sticky top-0 z-30 flex items-center justify-between h-16 px-4 md:px-6 bg-white border-b border-slate-200/80 shadow-xs">
+    <header style={{ background: '#fff4f9', borderBottom: '2px solid #f8cee8', boxShadow: '0 2px 16px rgba(248,206,232,0.3)' }}
+      className="sticky top-0 z-30 flex items-center justify-between h-16 px-4 md:px-6">
       <div className="flex items-center gap-3">
         <button
           onClick={toggleSidebar}
-          className="p-2 text-slate-500 rounded-lg md:hidden hover:bg-slate-100 hover:text-slate-700 transition-colors"
+          style={{ color: '#a0336e', background: '#f8cee8' }}
+          className="p-2 rounded-xl md:hidden hover:opacity-80 transition-opacity"
         >
-          <Menu className="w-6 h-6" />
+          <Menu className="w-5 h-5" />
         </button>
-        <h1 className="text-lg font-bold text-slate-800 tracking-tight">{title}</h1>
+
       </div>
 
-      <div className="flex items-center gap-4">
-        <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 border border-slate-200 text-xs font-semibold text-slate-700">
-          <UserIcon className="w-3.5 h-3.5 text-amber-600" />
-          <span>{user?.name}</span>
-          <span className="text-slate-400">|</span>
-          <span className="text-amber-700 font-bold uppercase">{user?.role}</span>
-        </div>
-
-        <button
-          onClick={logout}
-          title="Logout"
-          className="flex items-center gap-2 px-3.5 py-1.5 text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-xl transition-colors shadow-xs"
+      <div className="flex items-center gap-3">
+        <Link
+          to="/profile"
+          style={{ background: '#fff4e7', border: '1.5px solid #ffdbb5', color: '#9a4a00', textDecoration: 'none' }}
+          className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold hover:border-[#f0a3d0] hover:bg-[#fff0f7] transition-all cursor-pointer shadow-sm"
+          title="Buka Profil Saya"
         >
-          <LogOut className="w-4 h-4" />
-          <span className="hidden sm:inline">Logout</span>
-        </button>
+          <UserIcon className="w-3.5 h-3.5" style={{ color: '#f0a3d0' }} />
+          <span>{user?.name}</span>
+          <span style={{ color: '#ffdbb5' }}>|</span>
+          <span style={{ color: '#a0336e' }} className="font-extrabold uppercase">{user?.role}</span>
+        </Link>
       </div>
     </header>
   );

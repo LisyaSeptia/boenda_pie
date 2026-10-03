@@ -1,28 +1,69 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss/base";
+@import "tailwindcss/components";
+@import "tailwindcss/utilities";
 
-@layer base {
-  body {
-    @apply bg-slate-50 text-slate-800 antialiased;
-  }
+/* ============================================================
+   BOENDA PIE — Pastel Color System
+   #beeaff (blue) | #f8cee8 (pink) | #fcf0c0 (yellow) | #fff4e7 (salmon)
+   ============================================================ */
+:root {
+  --bp-blue:        #beeaff;
+  --bp-blue-dark:   #7dcef5;
+  --bp-blue-text:   #1a6fa0;
+  --bp-pink:        #f8cee8;
+  --bp-pink-dark:   #f0a3d0;
+  --bp-pink-text:   #a0336e;
+  --bp-yellow:      #fcf0c0;
+  --bp-yellow-dark: #f5d96b;
+  --bp-yellow-text: #8a6000;
+  --bp-salmon:      #fff4e7;
+  --bp-salmon-dark: #ffdbb5;
+  --bp-salmon-text: #9a4a00;
+  --bp-bg:          #fffaf5;
+  --bp-card:        #ffffff;
+  --bp-border:      #f0e8e0;
+  --bp-text:        #3d2c1e;
+  --bp-text-muted:  #9b8b7c;
+}
+
+html {
+  overflow: hidden;
+  height: 100%;
+}
+
+body {
+  background-color: var(--bp-bg);
+  color: var(--bp-text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-family: 'Nunito', 'Segoe UI', system-ui, sans-serif;
+  overflow: hidden;
+  height: 100%;
+  width: 100%;
+}
+
+#root {
+  height: 100%;
+  overflow: hidden;
 }
 
 /* Custom scrollbar */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bp-salmon); }
+::-webkit-scrollbar-thumb { background: var(--bp-pink-dark); border-radius: 9999px; }
+::-webkit-scrollbar-thumb:hover { background: var(--bp-pink-text); }
+
+/* Touch & horizontal scroll optimizations for mobile tables */
+.overflow-x-auto {
+  -webkit-overflow-scrolling: touch;
 }
 
-::-webkit-scrollbar-track {
-  background: #f1f5f9;
-}
-
-::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 9999px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+/* Hide browser default header and footer when printing */
+@media print {
+  @page {
+    margin: 0;
+  }
+  body {
+    print-color-adjust: exact;
+  }
 }

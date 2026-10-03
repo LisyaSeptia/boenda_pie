@@ -6,13 +6,14 @@ import LoadingSpinner from '../components/LoadingSpinner';
 import Modal from '../components/Modal';
 import Toast from '../components/Toast';
 import { formatDate } from '../utils/formatters';
+import { getCachedData, setCachedData } from '../utils/dataCache';
 import { Plus, Factory, Wheat, Trash2, CheckCircle2, ChevronRight } from 'lucide-react';
 
 const ProductionPage = () => {
-  const [productions, setProductions] = useState([]);
-  const [products, setProducts] = useState([]);
-  const [materials, setMaterials] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [productions, setProductions] = useState(() => getCachedData('productions') || []);
+  const [products, setProducts] = useState(() => getCachedData('prod_products') || []);
+  const [materials, setMaterials] = useState(() => getCachedData('prod_materials') || []);
+  const [loading, setLoading] = useState(() => !getCachedData('productions'));
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -34,16 +35,25 @@ const ProductionPage = () => {
 
   const fetchInitialData = async () => {
     try {
-      setLoading(true);
+      if (productions.length === 0) setLoading(true);
       const [prodRes, pRes, mRes] = await Promise.all([
         productionService.getAll(),
         productService.getAll(),
         materialService.getAll()
       ]);
 
-      if (prodRes.success) setProductions(prodRes.data);
-      if (pRes.success) setProducts(pRes.data);
-      if (mRes.success) setMaterials(mRes.data);
+      if (prodRes.success) {
+        setProductions(prodRes.data);
+        setCachedData('productions', prodRes.data);
+      }
+      if (pRes.success) {
+        setProducts(pRes.data);
+        setCachedData('prod_products', pRes.data);
+      }
+      if (mRes.success) {
+        setMaterials(mRes.data);
+        setCachedData('prod_materials', mRes.data);
+      }
     } catch (err) {
       showToast(err.response?.data?.message || 'Gagal memuat data produksi', 'error');
     } finally {
@@ -123,15 +133,20 @@ const ProductionPage = () => {
       <Toast message={toast.message} type={toast.type} onClose={() => setToast({ message: '', type: 'success' })} />
 
       {/* Header Controls */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
-        <div>
-          <h2 className="text-xl font-bold text-slate-900">Pencatatan Produksi & Penggunaan Bahan</h2>
-          <p className="text-xs text-slate-500">Catat hasil pembuatan kue pie. Sistem akan memotong stok bahan baku dan menambah stok produk secara otomatis.</p>
+      <div style={{ background: 'white', borderRadius: 24, padding: '20px 24px', border: '1.5px solid #e2e8f0', boxShadow: '0 4px 20px rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          <div style={{ width: 46, height: 46, borderRadius: 14, background: '#fff0f7', border: '1.5px solid #f0a3d0', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <Factory style={{ width: 22, height: 22, color: '#a0336e' }} />
+          </div>
+          <div>
+            <h2 style={{ fontSize: 18, fontWeight: 900, color: '#3d2c1e', margin: 0 }}>Pencatatan Produksi &amp; Penggunaan Bahan</h2>
+            <p style={{ fontSize: 12, color: '#475569', margin: 0, marginTop: 2, fontWeight: 500 }}>Catat hasil pembuatan kue pie. Sistem akan memotong stok bahan baku dan menambah stok produk secara otomatis.</p>
+          </div>
         </div>
 
         <button
           onClick={handleOpenModal}
-          className="px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs rounded-xl shadow-md transition-colors flex items-center gap-2 cursor-pointer"
+          className="px-4 py-2.5 bg-[#f8cee8] text-[#a0336e] border border-[#f0a3d0] hover:bg-[#f3b5db] font-extrabold text-xs rounded-2xl shadow-xs transition-all flex items-center gap-2 cursor-pointer active:scale-95"
         >
           <Plus className="w-4 h-4" />
           <span>Catat Produksi Baru</span>
@@ -139,7 +154,7 @@ const ProductionPage = () => {
       </div>
 
       {/* Productions Table */}
-      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+      <div className="bg-white rounded-2xl border border-[#f8cee8] shadow-xs overflow-hidden">
         {loading ? (
           <LoadingSpinner text="Memuat riwayat produksi..." />
         ) : productions.length === 0 ? (
@@ -148,44 +163,44 @@ const ProductionPage = () => {
             <p className="font-semibold text-sm">Belum ada riwayat produksi recorded.</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs text-slate-700">
-              <thead className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200 uppercase">
+          <div className="w-full overflow-x-auto">
+            <table className="w-full text-left text-xs text-slate-700 min-w-[650px]">
+              <thead className="bg-[#fff4f9] text-[#a0336e] font-extrabold border-b-2 border-[#f0a3d0] uppercase tracking-wider text-[11px]">
                 <tr>
-                  <th className="p-4">No. Produksi</th>
-                  <th className="p-4">Waktu</th>
-                  <th className="p-4">Produk Dihasilkan</th>
-                  <th className="p-4">Jumlah Hasil</th>
+                  <th className="p-4 whitespace-nowrap">No. Produksi</th>
+                  <th className="p-4 whitespace-nowrap">Waktu</th>
+                  <th className="p-4 whitespace-nowrap">Produk Dihasilkan</th>
+                  <th className="p-4 whitespace-nowrap">Jumlah Hasil</th>
                   <th className="p-4">Bahan Baku Digunakan</th>
-                  <th className="p-4 text-center">Detail</th>
+                  <th className="p-4 text-center whitespace-nowrap">Detail</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {productions.map((prod) => (
-                  <tr key={prod._id} className="hover:bg-slate-50/80 transition-colors">
-                    <td className="p-4 font-bold text-slate-900">{prod.productionNumber}</td>
-                    <td className="p-4 text-slate-500">{formatDate(prod.date)}</td>
-                    <td className="p-4 font-bold text-amber-800">
+                  <tr key={prod._id} className="hover:bg-pink-50/30 transition-colors">
+                    <td className="p-4 font-bold text-slate-900 whitespace-nowrap">{prod.productionNumber}</td>
+                    <td className="p-4 text-slate-600 font-medium whitespace-nowrap">{formatDate(prod.date)}</td>
+                    <td className="p-4 font-extrabold text-slate-900 min-w-[160px]">
                       {prod.productId?.name || 'Produk'}
                     </td>
-                    <td className="p-4">
-                      <span className="px-2.5 py-1 bg-emerald-100 text-emerald-800 font-black rounded-lg">
+                    <td className="p-4 whitespace-nowrap">
+                      <span className="px-2.5 py-1 bg-pink-50 text-pink-700 border border-pink-200 font-black rounded-lg whitespace-nowrap">
                         +{prod.quantity} {prod.productId?.unit || 'pcs'}
                       </span>
                     </td>
                     <td className="p-4">
                       <div className="space-y-1">
                         {prod.materialsUsed?.map((m, idx) => (
-                          <div key={idx} className="text-[11px] text-slate-600">
+                          <div key={idx} className="text-xs text-slate-600 font-medium">
                             • {m.materialName}: <strong className="text-slate-800">{m.quantity} {m.unit}</strong>
                           </div>
                         ))}
                       </div>
                     </td>
-                    <td className="p-4 text-center">
+                    <td className="p-4 text-center whitespace-nowrap">
                       <button
                         onClick={() => setDetailProduction(prod)}
-                        className="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition-colors inline-flex items-center gap-1 font-semibold text-[11px]"
+                        className="p-1.5 text-pink-600 hover:bg-pink-50 rounded-lg transition-colors inline-flex items-center gap-1 font-bold text-[11px] whitespace-nowrap"
                       >
                         Lihat <ChevronRight className="w-3.5 h-3.5" />
                       </button>
@@ -212,7 +227,7 @@ const ProductionPage = () => {
               <select
                 value={productId}
                 onChange={(e) => setProductId(e.target.value)}
-                className="w-full bg-white border border-slate-200 rounded-xl py-2 px-3 focus:outline-none focus:border-amber-500 font-semibold"
+                className="w-full bg-white border border-slate-200 rounded-xl py-2 px-3 focus:outline-none focus:border-[#f0a3d0] font-semibold"
               >
                 {products.map((p) => (
                   <option key={p._id} value={p._id}>
@@ -231,7 +246,7 @@ const ProductionPage = () => {
                 value={quantity}
                 onChange={(e) => setQuantity(e.target.value)}
                 placeholder="Misal: 100"
-                className="w-full bg-white border border-slate-200 rounded-xl py-2 px-3 focus:outline-none focus:border-amber-500 font-bold"
+                className="w-full bg-white border border-slate-200 rounded-xl py-2 px-3 focus:outline-none focus:border-[#f0a3d0] font-bold"
               />
             </div>
           </div>
@@ -303,7 +318,7 @@ const ProductionPage = () => {
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Contoh: Produksi batch pagi untuk pesanan acara..."
-              className="w-full bg-white border border-slate-200 rounded-xl py-2 px-3 focus:outline-none focus:border-amber-500"
+              className="w-full bg-white border border-slate-200 rounded-xl py-2 px-3 focus:outline-none focus:border-[#f0a3d0]"
             />
           </div>
 

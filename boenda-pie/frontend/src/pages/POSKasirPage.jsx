@@ -6,6 +6,8 @@ import LoadingSpinner from '../components/LoadingSpinner';
 import Toast from '../components/Toast';
 import ReceiptModal from '../components/ReceiptModal';
 import { formatRupiah } from '../utils/formatters';
+import { useAuth } from '../context/AuthContext';
+import { getCachedData, setCachedData } from '../utils/dataCache';
 import {
   Search,
   ShoppingBag,
@@ -16,15 +18,26 @@ import {
   QrCode,
   DollarSign,
   CheckCircle2,
-  AlertCircle,
-  Loader2
+  UtensilsCrossed,
+  CupSoda,
+  Sparkles,
+  Loader2,
+  User
 } from 'lucide-react';
 
 const POSKasirPage = () => {
-  const [products, setProducts] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
+  const [activeCashierName, setActiveCashierName] = useState(user?.name || '');
+  const [products, setProducts] = useState(() => getCachedData('products') || []);
+  const [loading, setLoading] = useState(() => !getCachedData('products'));
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
+
+  useEffect(() => {
+    if (user?.name && !activeCashierName) {
+      setActiveCashierName(user.name);
+    }
+  }, [user]);
 
   const {
     cartItems,
@@ -53,13 +66,14 @@ const POSKasirPage = () => {
 
   const fetchProducts = async () => {
     try {
-      setLoading(true);
+      if (products.length === 0) setLoading(true);
       const res = await productService.getAll({
         search,
         category: selectedCategory
       });
       if (res.success) {
         setProducts(res.data);
+        if (!search && !selectedCategory) setCachedData('products', res.data);
       }
     } catch (err) {
       showToast(err.response?.data?.message || 'Gagal memuat katalog POS', 'error');
@@ -91,7 +105,8 @@ const POSKasirPage = () => {
           quantity: item.quantity
         })),
         payAmount: numPay,
-        paymentMethod
+        paymentMethod,
+        cashierName: activeCashierName.trim() || user?.name || 'Kasir'
       };
 
       const res = await transactionService.create(payload);
@@ -109,167 +124,290 @@ const POSKasirPage = () => {
     }
   };
 
-  const categories = ['Food', 'Drink'];
+  // Filter products by category for grouped view
+  const foodProducts = products.filter(
+    (p) => (p.category || '').toLowerCase() === 'food' || (p.category || '').toLowerCase() === 'makanan'
+  );
+
+  const drinkProducts = products.filter(
+    (p) => (p.category || '').toLowerCase() === 'drink' || (p.category || '').toLowerCase() === 'minuman'
+  );
+
+  const otherProducts = products.filter(
+    (p) =>
+      (p.category || '').toLowerCase() !== 'food' &&
+      (p.category || '').toLowerCase() !== 'makanan' &&
+      (p.category || '').toLowerCase() !== 'drink' &&
+      (p.category || '').toLowerCase() !== 'minuman'
+  );
+
+  const renderProductCard = (prod) => {
+    const isOutOfStock = prod.stock <= 0;
+    const isDrink = (prod.category || '').toLowerCase() === 'drink';
+    return (
+      <div
+        key={prod._id}
+        onClick={() => !isOutOfStock && addToCart(prod)}
+        className={`bg-white rounded-2xl border-2 p-3.5 flex flex-col justify-between transition-all duration-200 group hover:-translate-y-0.5 ${
+          isOutOfStock
+            ? 'border-slate-200 opacity-60 cursor-not-allowed bg-slate-50/50'
+            : isDrink
+            ? 'border-[#beeaff] hover:border-[#7dcef5] hover:shadow-md cursor-pointer'
+            : 'border-[#f8cee8] hover:border-[#f0a3d0] hover:shadow-md cursor-pointer'
+        }`}
+      >
+        <div>
+          <div className="flex items-center justify-between gap-1 mb-2">
+            <span
+              className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded-full border inline-flex items-center gap-1 whitespace-nowrap ${
+                isDrink
+                  ? 'bg-[#beeaff] text-[#1a6fa0] border-[#7dcef5]'
+                  : 'bg-[#f8cee8] text-[#a0336e] border-[#f0a3d0]'
+              }`}
+            >
+              {isDrink ? '🥤 Drink' : '🍕 Food'}
+            </span>
+            <span
+              className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                isOutOfStock
+                  ? 'bg-rose-100 text-rose-800'
+                  : prod.stock <= prod.minStock
+                  ? 'bg-[#fcf0c0] text-[#8a6000]'
+                  : 'bg-emerald-100 text-emerald-800'
+              }`}
+            >
+              Stok: {prod.stock}
+            </span>
+          </div>
+
+          <h4 className="font-extrabold text-slate-800 text-xs line-clamp-2 group-hover:text-[#a0336e] transition-colors">
+            {prod.name}
+          </h4>
+        </div>
+
+        <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between">
+          <span className="font-black text-slate-900 text-sm">
+            {formatRupiah(prod.price)}
+          </span>
+          <button
+            disabled={isOutOfStock}
+            className={`w-8 h-8 rounded-xl flex items-center justify-center border font-bold transition-all ${
+              isOutOfStock
+                ? 'bg-slate-100 text-slate-400 border-slate-200'
+                : isDrink
+                ? 'bg-[#beeaff] text-[#1a6fa0] border-[#7dcef5] hover:bg-[#a6e0fc] group-hover:scale-105 active:scale-95'
+                : 'bg-[#f8cee8] text-[#a0336e] border-[#f0a3d0] hover:bg-[#f3b5db] group-hover:scale-105 active:scale-95'
+            }`}
+          >
+            <Plus className="w-4 h-4 stroke-[2.5]" />
+          </button>
+        </div>
+      </div>
+    );
+  };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+    <>
       <Toast message={toast.message} type={toast.type} onClose={() => setToast({ message: '', type: 'success' })} />
-
-      {/* Product Catalog Section (8 Cols) */}
-      <div className="lg:col-span-7 xl:col-span-8 space-y-4">
-        {/* Search & Category Filter */}
-        <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col sm:flex-row gap-3">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {/* Product Catalog Section (8 Cols) */}
+        <div className="lg:col-span-7 xl:col-span-8 space-y-5">
+          {/* Search & Category Filter */}
+          <div className="bg-white p-4 rounded-2xl border-2 border-[#f8cee8] shadow-xs flex flex-col sm:flex-row gap-3">
           <div className="relative flex-1">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+            <Search className="w-4 h-4 text-[#a0336e] absolute left-3.5 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Cari produk pie..."
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2 pl-10 pr-4 text-xs focus:outline-none focus:border-amber-500"
+              placeholder="Cari menu..."
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2 pl-10 pr-4 text-xs focus:outline-none focus:border-[#f8cee8] focus:bg-white transition-all"
             />
           </div>
 
-          <div className="flex gap-1 overflow-x-auto pb-1 sm:pb-0">
+          <div className="flex gap-2 overflow-x-auto pb-1 sm:pb-0">
             <button
               onClick={() => setSelectedCategory('')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 ${
+              className={`px-4 py-2 rounded-2xl text-xs font-extrabold transition-all shrink-0 border ${
                 selectedCategory === ''
-                  ? 'bg-amber-500 text-slate-950 shadow-xs'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  ? 'bg-[#fcf0c0] text-[#8a6000] border-[#f5d96b] shadow-xs'
+                  : 'bg-white text-slate-500 border-slate-200 hover:bg-[#fffdf0]'
               }`}
             >
-              Semua
+              Semua Menu ✨
             </button>
-            {categories.map((cat) => (
-              <button
-                key={cat}
-                onClick={() => setSelectedCategory(cat)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 ${
-                  selectedCategory === cat
-                    ? 'bg-amber-500 text-slate-950 shadow-xs'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                }`}
-              >
-                {cat}
-              </button>
-            ))}
+            <button
+              onClick={() => setSelectedCategory('Food')}
+              className={`px-4 py-2 rounded-2xl text-xs font-extrabold transition-all shrink-0 border flex items-center gap-1.5 ${
+                selectedCategory === 'Food'
+                  ? 'bg-[#f8cee8] text-[#a0336e] border-[#f0a3d0] shadow-xs'
+                  : 'bg-white text-slate-500 border-slate-200 hover:bg-[#fff4f9]'
+              }`}
+            >
+              <UtensilsCrossed className="w-3.5 h-3.5" />
+              Food 🍕
+            </button>
+            <button
+              onClick={() => setSelectedCategory('Drink')}
+              className={`px-4 py-2 rounded-2xl text-xs font-extrabold transition-all shrink-0 border flex items-center gap-1.5 ${
+                selectedCategory === 'Drink'
+                  ? 'bg-[#beeaff] text-[#1a6fa0] border-[#7dcef5] shadow-xs'
+                  : 'bg-white text-slate-500 border-slate-200 hover:bg-[#f0f9ff]'
+              }`}
+            >
+              <CupSoda className="w-3.5 h-3.5" />
+              Drink 🥤
+            </button>
           </div>
         </div>
 
-        {/* Product Cards Grid */}
+        {/* Product Catalog Display */}
         {loading ? (
           <LoadingSpinner text="Menyiapkan katalog kasir..." />
         ) : products.length === 0 ? (
-          <div className="bg-white rounded-2xl p-12 text-center text-slate-400 border border-slate-200">
-            <ShoppingBag className="w-12 h-12 mx-auto mb-2 text-slate-300" />
-            <p className="font-semibold text-sm">Produk tidak ditemukan</p>
+          <div className="bg-white rounded-2xl p-12 text-center text-slate-400 border-2 border-[#f8cee8] shadow-xs">
+            <ShoppingBag className="w-12 h-12 mx-auto mb-2 text-[#a0336e]" />
+            <p className="font-extrabold text-slate-700 text-sm">Menu tidak ditemukan</p>
+            <p className="text-xs text-slate-400 mt-1">Coba kata kunci atau filter lain.</p>
+          </div>
+        ) : selectedCategory ? (
+          /* Filtered View (Single Category) */
+          <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3.5">
+            {products.map((prod) => renderProductCard(prod))}
           </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 xl:grid-cols-4 gap-3">
-            {products.map((prod) => {
-              const isOutOfStock = prod.stock <= 0;
-              return (
-                <div
-                  key={prod._id}
-                  onClick={() => !isOutOfStock && addToCart(prod)}
-                  className={`bg-white rounded-2xl border p-3.5 flex flex-col justify-between transition-all group ${
-                    isOutOfStock
-                      ? 'border-slate-200 opacity-60 cursor-not-allowed'
-                      : 'border-slate-200/80 hover:border-amber-500 hover:shadow-md cursor-pointer'
-                  }`}
-                >
-                  <div>
-                    <div className="flex items-center justify-between gap-1 mb-2">
-                      <span className="text-[10px] font-bold px-2 py-0.5 bg-amber-100 text-amber-900 rounded-full">
-                        {prod.category}
-                      </span>
-                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
-                        isOutOfStock ? 'bg-rose-100 text-rose-800' : 'bg-slate-100 text-slate-700'
-                      }`}>
-                        Stok: {prod.stock}
-                      </span>
-                    </div>
-
-                    <h4 className="font-extrabold text-slate-800 text-xs line-clamp-2 group-hover:text-amber-700 transition-colors">
-                      {prod.name}
-                    </h4>
-                  </div>
-
-                  <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between">
-                    <span className="font-black text-amber-800 text-sm">
-                      {formatRupiah(prod.price)}
+          /* Default Grouped View (Food Row Section & Drink Row Section) */
+          <div className="space-y-6">
+            {/* FOOD SECTION */}
+            {foodProducts.length > 0 && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between px-1">
+                  <div className="flex items-center gap-2">
+                    <span className="p-1.5 rounded-xl bg-[#f8cee8] text-[#a0336e] border border-[#f0a3d0]">
+                      <UtensilsCrossed className="w-4 h-4" />
                     </span>
-                    <button
-                      disabled={isOutOfStock}
-                      className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors ${
-                        isOutOfStock
-                          ? 'bg-slate-100 text-slate-400'
-                          : 'bg-amber-500 text-slate-950 group-hover:bg-amber-600'
-                      }`}
-                    >
-                      <Plus className="w-4 h-4" />
-                    </button>
+                    <h3 className="font-extrabold text-slate-800 text-sm">
+                      Kategori Makanan (Food 🍕)
+                    </h3>
                   </div>
+                  <span className="text-[11px] font-extrabold text-[#a0336e] bg-[#f8cee8] px-3 py-1 rounded-full border border-[#f0a3d0]">
+                    {foodProducts.length} Varian
+                  </span>
                 </div>
-              );
-            })}
+                <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3.5">
+                  {foodProducts.map((prod) => renderProductCard(prod))}
+                </div>
+              </div>
+            )}
+
+            {/* DRINK SECTION */}
+            {drinkProducts.length > 0 && (
+              <div className="space-y-3 pt-2">
+                <div className="flex items-center justify-between px-1">
+                  <div className="flex items-center gap-2">
+                    <span className="p-1.5 rounded-xl bg-[#beeaff] text-[#1a6fa0] border border-[#7dcef5]">
+                      <CupSoda className="w-4 h-4" />
+                    </span>
+                    <h3 className="font-extrabold text-slate-800 text-sm">
+                      Kategori Minuman (Drink 🥤)
+                    </h3>
+                  </div>
+                  <span className="text-[11px] font-extrabold text-[#1a6fa0] bg-[#beeaff] px-3 py-1 rounded-full border border-[#7dcef5]">
+                    {drinkProducts.length} Varian
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3.5">
+                  {drinkProducts.map((prod) => renderProductCard(prod))}
+                </div>
+              </div>
+            )}
+
+            {/* OTHER SECTION (if any) */}
+            {otherProducts.length > 0 && (
+              <div className="space-y-3 pt-2">
+                <div className="flex items-center justify-between px-1">
+                  <div className="flex items-center gap-2">
+                    <span className="p-1.5 rounded-xl bg-[#fcf0c0] text-[#8a6000] border border-[#f5d96b]">
+                      <Sparkles className="w-4 h-4" />
+                    </span>
+                    <h3 className="font-extrabold text-slate-800 text-sm">
+                      Menu Lainnya
+                    </h3>
+                  </div>
+                  <span className="text-[11px] font-extrabold text-[#8a6000] bg-[#fcf0c0] px-3 py-1 rounded-full border border-[#f5d96b]">
+                    {otherProducts.length} Varian
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3.5">
+                  {otherProducts.map((prod) => renderProductCard(prod))}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
 
       {/* Cart Side Panel (4 Cols) */}
-      <div className="lg:col-span-5 xl:col-span-4 bg-white rounded-2xl border border-slate-200/80 p-5 shadow-xs sticky top-20">
-        <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
+      <div className="lg:col-span-5 xl:col-span-4 bg-white rounded-2xl border-2 border-[#f8cee8] p-5 shadow-xs">
+        <div className="flex items-center justify-between pb-3 border-b-2 border-[#f8cee8] mb-3">
           <div className="flex items-center gap-2">
-            <ShoppingBag className="w-5 h-5 text-amber-600" />
-            <h3 className="font-bold text-slate-900 text-sm">Keranjang Pesanan</h3>
+            <div className="p-2 rounded-xl bg-[#f8cee8] text-[#a0336e] border border-[#f0a3d0]">
+              <ShoppingBag className="w-4 h-4 stroke-[2.5]" />
+            </div>
+            <div>
+              <h3 className="font-extrabold text-slate-900 text-sm">Keranjang Pesanan</h3>
+              <p className="text-[10px] text-slate-400">Total {cartItems.reduce((acc, item) => acc + item.quantity, 0)} pcs item</p>
+            </div>
           </div>
           {cartItems.length > 0 && (
             <button
               onClick={clearCart}
-              className="text-xs font-semibold text-rose-600 hover:text-rose-700 underline"
+              className="text-[11px] font-extrabold text-rose-500 hover:text-rose-700 hover:underline transition-colors"
             >
               Kosongkan
             </button>
           )}
         </div>
 
+
+
         {/* Cart Items List */}
-        <div className="max-h-60 overflow-y-auto space-y-2 pr-1 mb-4">
+        <div className="max-h-60 overflow-y-auto space-y-2 pr-1 mb-4 custom-scrollbar">
           {cartItems.length === 0 ? (
-            <div className="py-8 text-center text-slate-400 text-xs">
-              Keranjang masih kosong. Klik produk di katalog untuk menambahkan.
+            <div className="py-10 text-center text-slate-400 text-xs">
+              <ShoppingBag className="w-8 h-8 mx-auto mb-2 text-slate-300" />
+              <p className="font-medium text-slate-500">Keranjang masih kosong</p>
+              <p className="text-[11px] text-slate-400 mt-0.5">Klik produk di katalog untuk menambahkan.</p>
             </div>
           ) : (
             cartItems.map((item) => (
-              <div key={item._id} className="p-2.5 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-between gap-2 text-xs">
+              <div key={item._id} className="p-3 rounded-xl bg-[#fff4f9] border border-[#f8cee8] flex items-center justify-between gap-2 text-xs hover:border-[#f0a3d0] transition-colors">
                 <div className="flex-1 overflow-hidden">
                   <p className="font-bold text-slate-800 truncate">{item.name}</p>
-                  <p className="text-[11px] text-amber-700 font-semibold">{formatRupiah(item.price)}</p>
+                  <p className="text-[11px] text-[#a0336e] font-extrabold">{formatRupiah(item.price)}</p>
                 </div>
 
-                <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-lg p-0.5">
+                <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-xl p-1 shadow-2xs">
                   <button
                     onClick={() => updateQuantity(item._id, item.quantity - 1)}
-                    className="p-1 hover:bg-slate-100 rounded text-slate-600"
+                    className="p-1 hover:bg-[#fff4f9] rounded-lg text-slate-600 transition-colors"
                   >
                     <Minus className="w-3.5 h-3.5" />
                   </button>
-                  <span className="w-6 text-center font-bold text-slate-900 text-xs">{item.quantity}</span>
+                  <span className="w-6 text-center font-extrabold text-slate-900 text-xs">{item.quantity}</span>
                   <button
                     onClick={() => updateQuantity(item._id, item.quantity + 1)}
-                    className="p-1 hover:bg-slate-100 rounded text-slate-600"
+                    className="p-1 hover:bg-[#f0f9ff] rounded-lg text-slate-600 transition-colors"
                   >
                     <Plus className="w-3.5 h-3.5" />
                   </button>
                 </div>
 
                 <div className="text-right shrink-0">
-                  <p className="font-extrabold text-slate-900 text-xs">{formatRupiah(item.subtotal)}</p>
+                  <p className="font-black text-slate-900 text-xs">{formatRupiah(item.subtotal)}</p>
                   <button
                     onClick={() => removeFromCart(item._id)}
-                    className="text-slate-400 hover:text-rose-600 text-[10px]"
+                    className="text-rose-400 hover:text-rose-600 text-[10px] font-semibold transition-colors"
                   >
                     Hapus
                   </button>
@@ -280,50 +418,50 @@ const POSKasirPage = () => {
         </div>
 
         {/* Payment Summary */}
-        <div className="pt-3 border-t border-slate-100 space-y-3 text-xs">
-          <div className="flex justify-between font-bold text-slate-900 text-base">
-            <span>TOTAL BELANJA</span>
-            <span className="text-amber-800 font-black">{formatRupiah(totalAmount)}</span>
+        <div className="pt-3.5 border-t border-[#f8cee8] space-y-3.5 text-xs">
+          <div className="p-3 rounded-xl bg-[#fcf0c0] border-2 border-[#f5d96b] flex justify-between items-center">
+            <span className="font-extrabold text-[#8a6000] text-xs uppercase tracking-wider">TOTAL BELANJA</span>
+            <span className="text-slate-950 font-black text-lg">{formatRupiah(totalAmount)}</span>
           </div>
 
           {/* Payment Method Selector */}
           <div>
-            <label className="block font-semibold text-slate-700 mb-1.5">Metode Pembayaran</label>
+            <label className="block font-extrabold text-slate-700 mb-2 text-xs">Metode Pembayaran</label>
             <div className="grid grid-cols-3 gap-2">
               <button
                 type="button"
                 onClick={() => setPaymentMethod('CASH')}
-                className={`py-2 px-2 rounded-xl font-bold flex flex-col items-center gap-1 border transition-all text-[11px] ${
+                className={`py-2.5 px-2 rounded-2xl font-extrabold flex flex-col items-center gap-1 border-2 transition-all text-[11px] ${
                   paymentMethod === 'CASH'
-                    ? 'bg-amber-500 text-slate-950 border-amber-600 shadow-xs'
-                    : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                    ? 'bg-[#f8cee8] text-[#a0336e] border-[#f0a3d0] shadow-xs'
+                    : 'bg-white text-slate-600 border-slate-200 hover:bg-[#fff4f9]'
                 }`}
               >
-                <DollarSign className="w-4 h-4" />
+                <DollarSign className="w-4 h-4 stroke-[2.5]" />
                 TUNAI
               </button>
               <button
                 type="button"
                 onClick={() => setPaymentMethod('QRIS')}
-                className={`py-2 px-2 rounded-xl font-bold flex flex-col items-center gap-1 border transition-all text-[11px] ${
+                className={`py-2.5 px-2 rounded-2xl font-extrabold flex flex-col items-center gap-1 border-2 transition-all text-[11px] ${
                   paymentMethod === 'QRIS'
-                    ? 'bg-amber-500 text-slate-950 border-amber-600 shadow-xs'
-                    : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                    ? 'bg-[#beeaff] text-[#1a6fa0] border-[#7dcef5] shadow-xs'
+                    : 'bg-white text-slate-600 border-slate-200 hover:bg-[#f0f9ff]'
                 }`}
               >
-                <QrCode className="w-4 h-4" />
+                <QrCode className="w-4 h-4 stroke-[2.5]" />
                 QRIS
               </button>
               <button
                 type="button"
                 onClick={() => setPaymentMethod('TRANSFER')}
-                className={`py-2 px-2 rounded-xl font-bold flex flex-col items-center gap-1 border transition-all text-[11px] ${
+                className={`py-2.5 px-2 rounded-2xl font-extrabold flex flex-col items-center gap-1 border-2 transition-all text-[11px] ${
                   paymentMethod === 'TRANSFER'
-                    ? 'bg-amber-500 text-slate-950 border-amber-600 shadow-xs'
-                    : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                    ? 'bg-[#fcf0c0] text-[#8a6000] border-[#f5d96b] shadow-xs'
+                    : 'bg-white text-slate-600 border-slate-200 hover:bg-[#fffdf0]'
                 }`}
               >
-                <CreditCard className="w-4 h-4" />
+                <CreditCard className="w-4 h-4 stroke-[2.5]" />
                 TRANSFER
               </button>
             </div>
@@ -331,20 +469,23 @@ const POSKasirPage = () => {
 
           {/* Payment Input */}
           <div>
-            <label className="block font-semibold text-slate-700 mb-1">Uang Pembayaran (Rp)</label>
+            <label className="block font-extrabold text-slate-700 mb-1.5 text-xs">Uang Pembayaran (Rp)</label>
             <div className="relative">
               <input
-                type="number"
-                min="0"
-                value={payAmount}
-                onChange={(e) => setPayAmount(e.target.value)}
+                type="text"
+                inputMode="numeric"
+                value={payAmount ? Number(payAmount).toLocaleString('id-ID') : ''}
+                onChange={(e) => {
+                  const raw = e.target.value.replace(/[^0-9]/g, '');
+                  setPayAmount(raw);
+                }}
                 placeholder="Masukkan nominal uang..."
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-3 font-extrabold text-sm focus:outline-none focus:border-amber-500"
+                className="w-full bg-slate-50 border-2 border-slate-200 rounded-xl py-2.5 pl-3 pr-24 font-extrabold text-sm focus:outline-none focus:border-[#f8cee8] focus:bg-white transition-all"
               />
               <button
                 type="button"
                 onClick={() => setPayAmount(totalAmount.toString())}
-                className="absolute right-2 top-1/2 -translate-y-1/2 px-2 py-1 bg-amber-100 text-amber-900 text-[10px] font-bold rounded-lg hover:bg-amber-200"
+                className="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1.5 bg-[#f8cee8] text-[#a0336e] border border-[#f0a3d0] text-[10px] font-extrabold rounded-xl hover:bg-[#f3b5db] active:scale-95 transition-all"
               >
                 Uang Pas
               </button>
@@ -352,8 +493,8 @@ const POSKasirPage = () => {
           </div>
 
           {/* Change Display */}
-          <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 flex justify-between items-center">
-            <span className="font-semibold text-slate-600">Kembalian:</span>
+          <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 flex justify-between items-center">
+            <span className="font-bold text-slate-600 text-xs">Kembalian:</span>
             <span className={`font-black text-sm ${numPay < totalAmount && cartItems.length > 0 ? 'text-rose-600' : 'text-emerald-700'}`}>
               {numPay < totalAmount && cartItems.length > 0
                 ? `Kurang ${formatRupiah(totalAmount - numPay)}`
@@ -366,7 +507,7 @@ const POSKasirPage = () => {
             type="button"
             disabled={!isPayValid || isSubmitting}
             onClick={handleCheckout}
-            className="w-full py-3.5 px-4 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 font-extrabold text-sm rounded-xl shadow-md transition-all flex items-center justify-center gap-2 disabled:opacity-40 cursor-pointer"
+            className="w-full py-3.5 px-4 bg-[#f8cee8] text-[#a0336e] border-2 border-[#f0a3d0] hover:bg-[#f3b5db] font-black text-xs uppercase tracking-wider rounded-2xl shadow-xs transition-all flex items-center justify-center gap-2 disabled:opacity-40 cursor-pointer active:scale-98"
           >
             {isSubmitting ? (
               <>
@@ -390,6 +531,7 @@ const POSKasirPage = () => {
         transaction={completedTransaction}
       />
     </div>
+    </>
   );
 };
 

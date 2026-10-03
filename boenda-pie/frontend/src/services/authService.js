@@ -12,5 +12,13 @@ export const authService = {
   getMe: async () => {
     const response = await api.get('/auth/me');
     return response.data;
+  },
+  updateProfile: async (data) => {
+    const response = await api.put('/auth/profile', data);
+    return response.data;
+  },
+  updatePassword: async (data) => {
+    const response = await api.put('/auth/change-password', data);
+    return response.data;
   }
 };

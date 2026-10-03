@@ -51,6 +51,14 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
   };
 
+  const updateUserData = (newUserData) => {
+    setUser((prev) => {
+      const updated = { ...prev, ...newUserData };
+      localStorage.setItem('user', JSON.stringify(updated));
+      return updated;
+    });
+  };
+
   const isAdmin = user && user.role === 'ADMIN';
   const isKasir = user && user.role === 'KASIR';
 
@@ -62,6 +70,7 @@ export const AuthProvider = ({ children }) => {
         loading,
         login,
         logout,
+        updateUserData,
         isAdmin,
         isKasir,
         isAuthenticated: !!user

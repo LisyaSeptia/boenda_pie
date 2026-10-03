@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { PieChart, Lock, User, AlertCircle, Loader2 } from 'lucide-react';
+import { Lock, User, AlertCircle, Loader2, Eye, EyeOff } from 'lucide-react';
 
 const LoginPage = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -15,113 +16,196 @@ const LoginPage = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-
-    if (!username || !password) {
+    if (!username && !password) {
       setError('Username/Email dan Password wajib diisi');
       return;
+    } else if (!username) {
+      setError('Username/Email wajib diisi');
+      return;
+    } else if (!password) {
+      setError('Password wajib diisi');
+      return;
     }
-
     setIsSubmitting(true);
     try {
       const user = await login({ username, password });
-      if (user.role === 'ADMIN') {
-        navigate('/dashboard');
-      } else {
-        navigate('/pos');
-      }
+      if (user.role === 'ADMIN') navigate('/dashboard');
+      else navigate('/pos');
     } catch (err) {
-      setError(err.response?.data?.message || err.message || 'Login gagal, periksa kembali akun Anda');
+      if (!err.response) {
+        const netMsg = 'Koneksi gagal, silakan periksa sambungan server Anda';
+        setError(netMsg);
+      } else {
+        const msg = err.response?.data?.message || err.message || 'Login gagal, periksa kembali akun Anda';
+        setError(msg);
+      }
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="w-full max-w-md bg-slate-950/80 backdrop-blur-md p-8 rounded-3xl border border-slate-800 shadow-2xl relative z-10">
-      <div className="text-center mb-8">
-        <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-tr from-amber-500 to-amber-400 text-slate-950 mb-4 shadow-lg shadow-amber-500/25">
-          <PieChart className="w-9 h-9" />
+    <div style={{
+      width: '100%', maxWidth: 420,
+      background: 'rgba(255,255,255,0.85)',
+      backdropFilter: 'blur(20px)',
+      borderRadius: 28, padding: 36,
+      border: '1.5px solid rgba(248,206,232,0.6)',
+      boxShadow: '0 20px 60px rgba(248,206,232,0.3), 0 4px 20px rgba(190,234,255,0.2)',
+      position: 'relative', zIndex: 10
+    }}>
+      {/* Header */}
+      <div style={{ textAlign: 'center', marginBottom: 32 }}>
+        <div style={{
+          width: 80, height: 80, borderRadius: 20, margin: '0 auto 16px',
+          background: 'linear-gradient(135deg, #f8cee8, #beeaff)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          boxShadow: '0 8px 24px rgba(248,206,232,0.5)'
+        }}>
+          <img src="/cute-pie.jpg" alt="logo" style={{ width: 60, height: 60, objectFit: 'contain', borderRadius: 14 }} />
         </div>
-        <h2 className="text-2xl font-extrabold text-white tracking-tight">BOENDA PIE</h2>
-        <p className="text-xs font-semibold text-amber-400 tracking-widest uppercase mt-1">Sistem Kasir & Manajemen Stok</p>
+        <h2 style={{ fontSize: 26, fontWeight: 900, color: '#a0336e', margin: 0, letterSpacing: '-0.5px' }}>BOENDA PIE</h2>
+        <p style={{ fontSize: 11, fontWeight: 700, color: '#1a6fa0', letterSpacing: 4, textTransform: 'uppercase', marginTop: 4 }}>
+          Sistem Kasir & Manajemen Stok
+        </p>
       </div>
 
+      {/* Inline Error Alert */}
       {error && (
-        <div className="mb-6 p-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 flex items-start gap-3 text-rose-400 text-sm">
-          <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
-          <span>{error}</span>
+        <div style={{
+          background: '#fff0f5',
+          border: '1.5px solid #f8cee8',
+          borderRadius: 14,
+          padding: '10px 14px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+          color: '#a0336e',
+          fontSize: 12,
+          fontWeight: 700,
+          marginBottom: 16,
+          boxShadow: '0 2px 8px rgba(248,206,232,0.3)'
+        }}>
+          <AlertCircle style={{ width: 16, height: 16, flexShrink: 0, color: '#e11d48' }} />
+          <span style={{ flex: 1, lineHeight: 1.3 }}>{error}</span>
+          <button
+            type="button"
+            onClick={() => setError('')}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              cursor: 'pointer',
+              color: '#a0336e',
+              fontSize: 14,
+              padding: '0 4px',
+              fontWeight: 800
+            }}
+            aria-label="Tutup"
+          >
+            ✕
+          </button>
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-5">
+      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        {/* Username */}
         <div>
-          <label className="block text-xs font-semibold text-slate-300 uppercase mb-2">Username / Email</label>
-          <div className="relative">
-            <User className="w-5 h-5 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+          <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#9b8b7c', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>
+            Username / Email
+          </label>
+          <div style={{ position: 'relative' }}>
+            <User style={{ width: 18, height: 18, color: '#f0a3d0', position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)' }} />
             <input
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               placeholder="Masukkan username/email..."
-              className="w-full bg-slate-900 border border-slate-800 rounded-xl py-3 pl-11 pr-4 text-slate-100 text-sm focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition-colors"
+              style={{
+                width: '100%', background: '#fff4e7', border: '1.5px solid #ffdbb5',
+                borderRadius: 14, padding: '12px 14px 12px 42px',
+                color: '#3d2c1e', fontSize: 14, outline: 'none', boxSizing: 'border-box',
+                transition: 'border-color 0.2s'
+              }}
+              onFocus={e => e.target.style.borderColor = '#f0a3d0'}
+              onBlur={e => e.target.style.borderColor = '#ffdbb5'}
             />
           </div>
         </div>
 
+        {/* Password */}
         <div>
-          <label className="block text-xs font-semibold text-slate-300 uppercase mb-2">Password</label>
-          <div className="relative">
-            <Lock className="w-5 h-5 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+          <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#9b8b7c', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>
+            Password
+          </label>
+          <div style={{ position: 'relative' }}>
+            <Lock style={{ width: 18, height: 18, color: '#7dcef5', position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)' }} />
             <input
-              type="password"
+              type={showPassword ? 'text' : 'password'}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Masukkan password..."
-              className="w-full bg-slate-900 border border-slate-800 rounded-xl py-3 pl-11 pr-4 text-slate-100 text-sm focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition-colors"
+              style={{
+                width: '100%', background: '#fff4e7', border: '1.5px solid #ffdbb5',
+                borderRadius: 14, padding: '12px 44px 12px 42px',
+                color: '#3d2c1e', fontSize: 14, outline: 'none', boxSizing: 'border-box',
+                transition: 'border-color 0.2s'
+              }}
+              onFocus={e => e.target.style.borderColor = '#7dcef5'}
+              onBlur={e => e.target.style.borderColor = '#ffdbb5'}
             />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              aria-label={showPassword ? 'Sembunyikan password' : 'Lihat password'}
+              style={{
+                position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)',
+                background: 'transparent', border: 'none', cursor: 'pointer',
+                padding: 4, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: showPassword ? '#1a6fa0' : '#9b8b7c'
+              }}
+              tabIndex={-1}
+            >
+              {showPassword ? (
+                <Eye style={{ width: 18, height: 18 }} />
+              ) : (
+                <EyeOff style={{ width: 18, height: 18 }} />
+              )}
+            </button>
           </div>
         </div>
 
+        {/* Submit */}
         <button
           type="submit"
           disabled={isSubmitting}
-          className="w-full py-3.5 px-4 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 font-bold text-sm rounded-xl shadow-lg shadow-amber-500/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50 mt-2 cursor-pointer"
+          style={{
+            width: '100%', padding: '14px', marginTop: 18,
+            background: 'linear-gradient(135deg, #f8cee8 0%, #beeaff 100%)',
+            border: '1.5px solid #f0a3d0', borderRadius: 16,
+            color: '#a0336e', fontWeight: 800, fontSize: 14, cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+            boxShadow: '0 4px 15px rgba(248,206,232,0.4)',
+            transition: 'opacity 0.2s, transform 0.2s',
+            opacity: isSubmitting ? 0.7 : 1,
+          }}
+          onMouseOver={e => e.currentTarget.style.transform = 'translateY(-1px)'}
+          onMouseOut={e => e.currentTarget.style.transform = 'translateY(0)'}
         >
           {isSubmitting ? (
             <>
-              <Loader2 className="w-5 h-5 animate-spin" />
+              <Loader2 style={{ width: 18, height: 18, animation: 'spin 1s linear infinite' }} />
               <span>Memproses...</span>
             </>
           ) : (
-            <span>Masuk ke Sistem</span>
+            <span>Masuk</span>
           )}
         </button>
       </form>
 
-      {/* Demo Credentials Box */}
-      <div className="mt-8 pt-6 border-t border-slate-800/80 text-xs text-slate-400 space-y-2">
-        <p className="font-semibold text-slate-300">Akun Demo Standar:</p>
-        <div className="flex justify-between bg-slate-900/60 p-2.5 rounded-lg border border-slate-800">
-          <span>Admin: <strong className="text-amber-400">admin</strong> / admin123</span>
-          <button
-            type="button"
-            onClick={() => { setUsername('admin'); setPassword('admin123'); }}
-            className="text-amber-400 underline hover:text-amber-300"
-          >
-            Gunakan
-          </button>
-        </div>
-        <div className="flex justify-between bg-slate-900/60 p-2.5 rounded-lg border border-slate-800">
-          <span>Kasir: <strong className="text-amber-400">kasir</strong> / kasir123</span>
-          <button
-            type="button"
-            onClick={() => { setUsername('kasir'); setPassword('kasir123'); }}
-            className="text-amber-400 underline hover:text-amber-300"
-          >
-            Gunakan
-          </button>
-        </div>
-      </div>
+      <style>{`
+        @keyframes spin { to { transform: rotate(360deg); } }
+        input::-ms-reveal, input::-ms-clear { display: none; }
+      `}</style>
     </div>
   );
 };

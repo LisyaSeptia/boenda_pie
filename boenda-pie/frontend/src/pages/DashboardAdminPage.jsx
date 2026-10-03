@@ -2,231 +2,202 @@ import React, { useEffect, useState } from 'react';
 import { reportService } from '../services/reportService';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { formatRupiah, formatDate } from '../utils/formatters';
+import { getCachedData, setCachedData } from '../utils/dataCache';
 import {
-  Package,
-  Wheat,
-  AlertTriangle,
-  ShoppingBag,
-  TrendingUp,
-  Receipt,
-  ArrowRight
+  Package, Wheat, AlertTriangle, ShoppingBag,
+  TrendingUp, Receipt, ArrowRight
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 const DashboardAdminPage = () => {
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState(() => getCachedData('dashboardAdmin'));
+  const [loading, setLoading] = useState(() => !getCachedData('dashboardAdmin'));
   const [error, setError] = useState(null);
 
-  useEffect(() => {
-    fetchDashboard();
-  }, []);
+  useEffect(() => { fetchDashboard(); }, []);
 
   const fetchDashboard = async () => {
     try {
-      setLoading(true);
+      if (!data) setLoading(true);
       const res = await reportService.getDashboardData();
       if (res.success) {
         setData(res.data);
+        setCachedData('dashboardAdmin', res.data);
       }
     } catch (err) {
-      setError(err.response?.data?.message || 'Gagal memuat data dashboard');
+      if (!data) setError(err.response?.data?.message || 'Gagal memuat data dashboard');
     } finally {
       setLoading(false);
     }
   };
 
-  if (loading) return <LoadingSpinner text="Menyiapkan indikator dashboard..." />;
+  if (loading && !data) return <LoadingSpinner text="Menyiapkan indikator dashboard..." />;
 
-  if (error) {
-    return (
-      <div className="p-6 bg-rose-50 border border-rose-200 rounded-2xl text-rose-700">
-        <p className="font-semibold">{error}</p>
-        <button onClick={fetchDashboard} className="mt-3 px-4 py-2 bg-rose-600 text-white text-xs font-bold rounded-xl">
-          Coba Lagi
-        </button>
-      </div>
-    );
-  }
+  if (error) return (
+    <div style={{ padding: 24, background: '#fff0f5', border: '1.5px solid #f0a3d0', borderRadius: 16, color: '#a0336e' }}>
+      <p className="font-semibold">{error}</p>
+      <button onClick={fetchDashboard} style={{ marginTop: 12, padding: '8px 16px', background: '#f8cee8', border: '1.5px solid #f0a3d0', color: '#a0336e', fontWeight: 700, borderRadius: 10, cursor: 'pointer' }}>
+        Coba Lagi
+      </button>
+    </div>
+  );
+
+  const metricCards = [
+    { label: 'Total Produk', value: `${data?.totalProducts || 0} Varian`, icon: Package, bg: '#beeaff', bgLight: '#e8f7ff', iconColor: '#1a6fa0', border: '#7dcef5', labelColor: '#1a5a80' },
+    { label: 'Bahan Baku', value: `${data?.totalMaterials || 0} Jenis`, icon: Wheat, bg: '#f8cee8', bgLight: '#fff0f7', iconColor: '#a0336e', border: '#f0a3d0', labelColor: '#8a2060' },
+    { label: 'Penjualan Hari Ini', value: formatRupiah(data?.totalTodaySales || 0), sub: `${data?.totalTodayTransactions || 0} transaksi`, icon: TrendingUp, bg: '#fcf0c0', bgLight: '#fffbea', iconColor: '#8a6000', border: '#f5d96b', labelColor: '#7a5500' },
+    { label: 'Total Akumulasi Omset', value: formatRupiah(data?.grandTotalSales || 0), sub: `${data?.grandTotalTransactions || 0} total transaksi`, icon: Receipt, bg: '#fff4e7', bgLight: '#fffaf5', iconColor: '#9a4a00', border: '#ffdbb5', labelColor: '#8a3a00' },
+  ];
 
   return (
-    <div className="space-y-6">
-      {/* Top Banner Greeting */}
-      <div className="bg-gradient-to-r from-amber-600 via-amber-500 to-amber-700 rounded-3xl p-6 text-slate-950 shadow-lg shadow-amber-500/10 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+      {/* Top Banner */}
+      <div style={{
+        background: 'linear-gradient(135deg, #f8cee8 0%, #beeaff 50%, #fcf0c0 100%)',
+        borderRadius: 24, padding: '24px 28px',
+        border: '2px solid #f8cee8',
+        boxShadow: '0 4px 20px rgba(248,206,232,0.25)',
+        display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 16
+      }}>
         <div>
-          <span className="px-3 py-1 bg-slate-950/20 text-slate-950 font-extrabold text-xs rounded-full inline-block mb-2">
+          <span style={{ display: 'inline-block', padding: '4px 12px', background: 'rgba(255,255,255,0.6)', borderRadius: 20, fontSize: 11, fontWeight: 700, color: '#a0336e', marginBottom: 8 }}>
             Ringkasan Manajemen
           </span>
-          <h2 className="text-2xl font-black tracking-tight">Selamat Datang di System Boenda Pie Purwokerto</h2>
-          <p className="text-xs font-medium text-slate-900/80 mt-1">
-            Pantau stok bahan baku, tingkat produksi pie, dan performa kasir secara terintegrasi.
-          </p>
+          <h2 style={{ fontSize: 22, fontWeight: 900, color: '#3d2c1e', margin: '0 0 4px', lineHeight: 1.2 }}>Selamat Datang di System Boenda Pie Purwokerto</h2>
+          <p style={{ fontSize: 12, color: '#6b5748', margin: 0 }}>Pantau stok bahan baku, tingkat produksi pie, dan performa kasir secara terintegrasi.</p>
         </div>
-        <Link
-          to="/pos"
-          className="px-5 py-3 bg-slate-950 text-amber-400 font-bold text-sm rounded-2xl shadow-md hover:bg-slate-900 transition-colors flex items-center gap-2 shrink-0"
-        >
-          <ShoppingBag className="w-4 h-4" />
+        <Link to="/pos" style={{
+          display: 'flex', alignItems: 'center', gap: 8, padding: '10px 20px',
+          background: 'white', borderRadius: 14, fontWeight: 700, fontSize: 13,
+          color: '#a0336e', border: '1.5px solid #f8cee8', textDecoration: 'none',
+          boxShadow: '0 2px 10px rgba(248,206,232,0.3)', whiteSpace: 'nowrap'
+        }}>
+          <ShoppingBag style={{ width: 16, height: 16 }} />
           <span>Buka POS Kasir</span>
         </Link>
       </div>
 
-      {/* Metric Cards Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Total Products */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center shrink-0">
-            <Package className="w-6 h-6" />
-          </div>
-          <div>
-            <p className="text-xs font-semibold text-slate-500 uppercase">Total Produk</p>
-            <h3 className="text-xl font-extrabold text-slate-800">{data?.totalProducts || 0} Varian</h3>
-          </div>
-        </div>
-
-        {/* Total Materials */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center shrink-0">
-            <Wheat className="w-6 h-6" />
-          </div>
-          <div>
-            <p className="text-xs font-semibold text-slate-500 uppercase">Bahan Baku</p>
-            <h3 className="text-xl font-extrabold text-slate-800">{data?.totalMaterials || 0} Jenis</h3>
-          </div>
-        </div>
-
-        {/* Penjualan Hari Ini */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0">
-            <TrendingUp className="w-6 h-6" />
-          </div>
-          <div>
-            <p className="text-xs font-semibold text-slate-500 uppercase">Penjualan Hari Ini</p>
-            <h3 className="text-xl font-extrabold text-emerald-700">{formatRupiah(data?.totalTodaySales || 0)}</h3>
-            <span className="text-[11px] text-slate-500">{data?.totalTodayTransactions || 0} transaksi</span>
-          </div>
-        </div>
-
-        {/* Total Penjualan Keseluruhan */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-purple-100 text-purple-600 flex items-center justify-center shrink-0">
-            <Receipt className="w-6 h-6" />
-          </div>
-          <div>
-            <p className="text-xs font-semibold text-slate-500 uppercase">Total Akumulasi Omset</p>
-            <h3 className="text-xl font-extrabold text-slate-800">{formatRupiah(data?.grandTotalSales || 0)}</h3>
-            <span className="text-[11px] text-slate-500">{data?.grandTotalTransactions || 0} total transaksi</span>
-          </div>
-        </div>
+      {/* Metric Cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>
+        {metricCards.map((card, i) => {
+          const Icon = card.icon;
+          return (
+            <div key={i} style={{
+              background: `linear-gradient(135deg, ${card.bgLight} 0%, ${card.bg} 100%)`,
+              padding: '18px 20px', borderRadius: 20,
+              border: `1.5px solid ${card.border}`,
+              boxShadow: `0 2px 14px rgba(0,0,0,0.06)`,
+              display: 'flex', alignItems: 'center', gap: 16
+            }}>
+              <div style={{ width: 48, height: 48, borderRadius: 14, background: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}>
+                <Icon style={{ width: 22, height: 22, color: card.iconColor }} />
+              </div>
+              <div style={{ minWidth: 0 }}>
+                <p style={{ fontSize: 11, fontWeight: 600, color: card.labelColor, textTransform: 'uppercase', letterSpacing: 0.5, margin: '0 0 4px' }}>{card.label}</p>
+                <h3 style={{ fontSize: 18, fontWeight: 900, color: '#3d2c1e', margin: 0, lineHeight: 1 }}>{card.value}</h3>
+                {card.sub && <span style={{ fontSize: 11, color: card.labelColor }}>{card.sub}</span>}
+              </div>
+            </div>
+          );
+        })}
       </div>
 
-      {/* Alerts & Warnings Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* Alerts Section */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 20 }}>
         {/* Low Stock Products */}
-        <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-xs">
-          <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
-            <div className="flex items-center gap-2 text-rose-600">
-              <AlertTriangle className="w-5 h-5" />
-              <h3 className="font-bold text-slate-900 text-base">Produk Stok Rendah ({data?.lowStockProductsCount || 0})</h3>
+        <div style={{ background: 'white', borderRadius: 20, border: '1.5px solid #f8cee8', padding: '18px 20px', boxShadow: '0 2px 12px rgba(248,206,232,0.12)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 12, borderBottom: '1.5px solid #fff0f5', marginBottom: 14 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <AlertTriangle style={{ width: 18, height: 18, color: '#f0a3d0' }} />
+              <h3 style={{ fontWeight: 800, color: '#3d2c1e', fontSize: 14, margin: 0 }}>Produk Stok Rendah ({data?.lowStockProductsCount || 0})</h3>
             </div>
-            <Link to="/products" className="text-xs font-semibold text-amber-600 hover:text-amber-700 flex items-center gap-1">
-              Kelola <ArrowRight className="w-3.5 h-3.5" />
+            <Link to="/products" style={{ fontSize: 11, fontWeight: 700, color: '#a0336e', display: 'flex', alignItems: 'center', gap: 4, textDecoration: 'none' }}>
+              Kelola <ArrowRight style={{ width: 13, height: 13 }} />
             </Link>
           </div>
-
-          {data?.lowStockProducts && data.lowStockProducts.length > 0 ? (
-            <div className="space-y-2.5">
+          {data?.lowStockProducts?.length > 0 ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {data.lowStockProducts.map((prod) => (
-                <div key={prod._id} className="flex items-center justify-between p-3 rounded-xl bg-rose-50/50 border border-rose-100 text-xs">
-                  <div>
-                    <span className="font-bold text-slate-800">{prod.name}</span>
-                    <span className="text-slate-500 ml-2">({prod.category})</span>
+                <div key={prod._id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', borderRadius: 12, background: '#fff4f7', border: '1px solid #ffd6e5', fontSize: 12 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 4 }}>
+                    <span style={{ fontWeight: 700, color: '#3d2c1e' }}>{prod.name}</span>
+                    <span style={{ color: '#475569', fontWeight: 600, fontSize: 11, whiteSpace: 'nowrap' }}>({prod.category})</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="px-2 py-0.5 bg-rose-200 text-rose-800 font-extrabold rounded-full">
-                      Sisa: {prod.stock} {prod.unit}
-                    </span>
-                    <span className="text-slate-400">Min: {prod.minStock}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                    <span style={{ padding: '2px 8px', background: '#f8cee8', color: '#a0336e', fontWeight: 800, borderRadius: 20, fontSize: 11, whiteSpace: 'nowrap' }}>Sisa: {prod.stock} {prod.unit}</span>
+                    <span style={{ color: '#475569', fontSize: 11, fontWeight: 500, whiteSpace: 'nowrap' }}>Min: {prod.minStock}</span>
                   </div>
                 </div>
               ))}
             </div>
           ) : (
-            <p className="text-xs text-slate-500 py-4 text-center">Semua stok produk dalam kondisi aman.</p>
+            <p style={{ fontSize: 12, color: '#475569', fontWeight: 500, textAlign: 'center', padding: '12px 0', margin: 0 }}>Semua stok produk dalam kondisi aman. ✅</p>
           )}
         </div>
 
         {/* Low Stock Materials */}
-        <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-xs">
-          <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
-            <div className="flex items-center gap-2 text-amber-600">
-              <AlertTriangle className="w-5 h-5" />
-              <h3 className="font-bold text-slate-900 text-base">Bahan Baku Stok Rendah ({data?.lowStockMaterialsCount || 0})</h3>
+        <div style={{ background: 'white', borderRadius: 20, border: '1.5px solid #fcf0c0', padding: '18px 20px', boxShadow: '0 2px 12px rgba(252,240,192,0.2)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 12, borderBottom: '1.5px solid #fffbea', marginBottom: 14 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <AlertTriangle style={{ width: 18, height: 18, color: '#f5d96b' }} />
+              <h3 style={{ fontWeight: 800, color: '#3d2c1e', fontSize: 14, margin: 0 }}>Bahan Baku Stok Rendah ({data?.lowStockMaterialsCount || 0})</h3>
             </div>
-            <Link to="/materials" className="text-xs font-semibold text-amber-600 hover:text-amber-700 flex items-center gap-1">
-              Kelola <ArrowRight className="w-3.5 h-3.5" />
+            <Link to="/materials" style={{ fontSize: 11, fontWeight: 700, color: '#8a6000', display: 'flex', alignItems: 'center', gap: 4, textDecoration: 'none' }}>
+              Kelola <ArrowRight style={{ width: 13, height: 13 }} />
             </Link>
           </div>
-
-          {data?.lowStockMaterials && data.lowStockMaterials.length > 0 ? (
-            <div className="space-y-2.5">
+          {data?.lowStockMaterials?.length > 0 ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {data.lowStockMaterials.map((mat) => (
-                <div key={mat._id} className="flex items-center justify-between p-3 rounded-xl bg-amber-50/60 border border-amber-100 text-xs">
-                  <div>
-                    <span className="font-bold text-slate-800">{mat.name}</span>
-                    <span className="text-slate-500 ml-2">({mat.code})</span>
+                <div key={mat._id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', borderRadius: 12, background: '#fffbea', border: '1px solid #f5d96b', fontSize: 12 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 4 }}>
+                    <span style={{ fontWeight: 700, color: '#3d2c1e' }}>{mat.name}</span>
+                    <span style={{ color: '#475569', fontWeight: 600, fontSize: 11, whiteSpace: 'nowrap' }}>({mat.code})</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="px-2 py-0.5 bg-amber-200 text-amber-800 font-extrabold rounded-full">
-                      Sisa: {mat.stock} {mat.unit}
-                    </span>
-                    <span className="text-slate-400">Min: {mat.minStock}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                    <span style={{ padding: '2px 8px', background: '#fcf0c0', color: '#8a6000', fontWeight: 800, borderRadius: 20, fontSize: 11, whiteSpace: 'nowrap' }}>Sisa: {mat.stock} {mat.unit}</span>
+                    <span style={{ color: '#475569', fontSize: 11, fontWeight: 500, whiteSpace: 'nowrap' }}>Min: {mat.minStock}</span>
                   </div>
                 </div>
               ))}
             </div>
           ) : (
-            <p className="text-xs text-slate-500 py-4 text-center">Stok bahan baku tersedia mencukupi.</p>
+            <p style={{ fontSize: 12, color: '#9b8b7c', textAlign: 'center', padding: '12px 0', margin: 0 }}>Stok bahan baku tersedia mencukupi ✅</p>
           )}
         </div>
       </div>
 
-      {/* Recent Transactions Table */}
-      <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-xs">
-        <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
-          <h3 className="font-bold text-slate-900 text-base">Transaksi Penjualan Terbaru</h3>
-          <Link to="/transactions" className="text-xs font-semibold text-amber-600 hover:text-amber-700 flex items-center gap-1">
-            Lihat Semua Transaksi <ArrowRight className="w-3.5 h-3.5" />
+      {/* Recent Transactions */}
+      <div style={{ background: 'white', borderRadius: 20, border: '1.5px solid #beeaff', padding: '18px 20px', boxShadow: '0 2px 12px rgba(190,234,255,0.15)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 12, borderBottom: '1.5px solid #e8f7ff', marginBottom: 14 }}>
+          <h3 style={{ fontWeight: 800, color: '#3d2c1e', fontSize: 14, margin: 0 }}>Transaksi Penjualan Terbaru</h3>
+          <Link to="/transactions" style={{ fontSize: 11, fontWeight: 700, color: '#1a6fa0', display: 'flex', alignItems: 'center', gap: 4, textDecoration: 'none' }}>
+            Lihat Semua <ArrowRight style={{ width: 13, height: 13 }} />
           </Link>
         </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs text-slate-700">
-            <thead className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-100 uppercase">
-              <tr>
-                <th className="p-3">No. Invoice</th>
-                <th className="p-3">Waktu</th>
-                <th className="p-3">Kasir</th>
-                <th className="p-3">Metode</th>
-                <th className="p-3">Total Belanja</th>
+        <div style={{ overflowX: 'auto', width: '100%' }}>
+          <table style={{ width: '100%', minWidth: 550, borderCollapse: 'collapse', fontSize: 12 }}>
+            <thead>
+              <tr style={{ background: '#f0f9ff' }}>
+                {['No. Invoice', 'Waktu', 'Kasir', 'Metode', 'Total Belanja'].map(h => (
+                  <th key={h} style={{ padding: '10px 12px', fontWeight: 700, color: '#1a6fa0', textAlign: 'left', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5 }}>{h}</th>
+                ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
-              {data?.recentTransactions && data.recentTransactions.length > 0 ? (
-                data.recentTransactions.map((tx) => (
-                  <tr key={tx._id} className="hover:bg-slate-50/80 transition-colors">
-                    <td className="p-3 font-bold text-slate-900">{tx.invoiceNumber}</td>
-                    <td className="p-3 text-slate-500">{formatDate(tx.date)}</td>
-                    <td className="p-3">{tx.cashierName}</td>
-                    <td className="p-3">
-                      <span className="px-2 py-0.5 bg-slate-100 font-bold rounded text-[11px]">{tx.paymentMethod}</span>
-                    </td>
-                    <td className="p-3 font-extrabold text-amber-700">{formatRupiah(tx.totalAmount)}</td>
-                  </tr>
-                ))
-              ) : (
+            <tbody>
+              {data?.recentTransactions?.length > 0 ? data.recentTransactions.map((tx) => (
+                <tr key={tx._id} style={{ borderTop: '1px solid #e8f7ff' }}>
+                  <td style={{ padding: '10px 12px', fontWeight: 800, color: '#3d2c1e' }}>{tx.invoiceNumber}</td>
+                  <td style={{ padding: '10px 12px', color: '#9b8b7c' }}>{formatDate(tx.date)}</td>
+                  <td style={{ padding: '10px 12px', color: '#3d2c1e' }}>{tx.cashierName}</td>
+                  <td style={{ padding: '10px 12px' }}>
+                    <span style={{ padding: '2px 8px', background: '#beeaff', color: '#1a6fa0', fontWeight: 700, borderRadius: 20, fontSize: 11 }}>{tx.paymentMethod}</span>
+                  </td>
+                  <td style={{ padding: '10px 12px', fontWeight: 900, color: '#a0336e' }}>{formatRupiah(tx.totalAmount)}</td>
+                </tr>
+              )) : (
                 <tr>
-                  <td colSpan="5" className="p-4 text-center text-slate-400">Belum ada transaksi recorded.</td>
+                  <td colSpan="5" style={{ padding: 16, textAlign: 'center', color: '#9b8b7c' }}>Belum ada transaksi recorded.</td>
                 </tr>
               )}
             </tbody>

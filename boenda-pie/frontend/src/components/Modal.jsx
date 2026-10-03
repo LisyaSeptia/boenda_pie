@@ -3,44 +3,54 @@ import { X } from 'lucide-react';
 
 const Modal = ({ isOpen, onClose, title, children, maxWidth = 'max-w-xl' }) => {
   useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (e.key === 'Escape' && isOpen) {
-        onClose();
-      }
-    };
+    const handleKeyDown = (e) => { if (e.key === 'Escape' && isOpen) onClose(); };
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+
+    // Lock background scroll when modal is open
+    if (isOpen) {
+      const scrollY = window.scrollY;
+      document.body.style.overflow = 'hidden';
+      document.body.style.position = 'fixed';
+      document.body.style.top = `-${scrollY}px`;
+      document.body.style.width = '100%';
+    }
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      // Restore scroll position on close
+      const top = document.body.style.top;
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.top = '';
+      document.body.style.width = '';
+      if (top) window.scrollTo(0, -parseInt(top || '0'));
+    };
   }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
-      {/* Backdrop */}
-      <div
-        className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity"
-        onClick={onClose}
-      />
-
-      {/* Modal Container */}
-      <div className="flex min-h-full items-center justify-center p-4">
-        <div
-          className={`relative w-full ${maxWidth} transform overflow-hidden rounded-2xl bg-white p-6 text-left align-middle shadow-2xl transition-all border border-slate-100 z-10`}
-          onClick={(e) => e.stopPropagation()}
-        >
+    <div style={{ position: 'fixed', inset: 0, zIndex: 50, overflowY: 'auto' }}>
+      <div style={{ position: 'fixed', inset: 0, background: 'rgba(61,44,30,0.3)', backdropFilter: 'blur(4px)' }} onClick={onClose} />
+      <div style={{ display: 'flex', minHeight: '100%', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+        <div style={{
+          position: 'relative', width: '100%', maxWidth: 560,
+          background: 'white', borderRadius: 24, padding: 24,
+          border: '1.5px solid #f8cee8', zIndex: 10,
+          boxShadow: '0 20px 60px rgba(248,206,232,0.25), 0 4px 20px rgba(0,0,0,0.08)'
+        }} onClick={(e) => e.stopPropagation()}>
           {/* Header */}
-          <div className="flex items-center justify-between pb-4 mb-4 border-b border-slate-100">
-            <h3 className="text-lg font-bold text-slate-900 tracking-tight">{title}</h3>
-            <button
-              onClick={onClose}
-              className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors"
-            >
-              <X className="w-5 h-5" />
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 16, marginBottom: 16, borderBottom: '1.5px solid #fff4e7' }}>
+            <h3 style={{ fontSize: 17, fontWeight: 800, color: '#3d2c1e', margin: 0 }}>{title}</h3>
+            <button onClick={onClose} style={{
+              padding: 6, borderRadius: 10, background: '#fff4e7', border: '1px solid #ffdbb5',
+              cursor: 'pointer', display: 'flex', alignItems: 'center', color: '#9a4a00',
+              transition: 'background 0.15s'
+            }}>
+              <X style={{ width: 16, height: 16 }} />
             </button>
           </div>
-
-          {/* Body */}
-          <div className="mt-2">{children}</div>
+          <div>{children}</div>
         </div>
       </div>
     </div>

@@ -14,6 +14,7 @@ const productionRoutes = require('./routes/productionRoutes');
 const stockRoutes = require('./routes/stockRoutes');
 const transactionRoutes = require('./routes/transactionRoutes');
 const reportRoutes = require('./routes/reportRoutes');
+const userRoutes = require('./routes/userRoutes');
 
 const { autoSeedIfEmpty } = require('./utils/seedData');
 
@@ -42,6 +43,7 @@ app.use('/api/productions', productionRoutes);
 app.use('/api/stock', stockRoutes);
 app.use('/api/transactions', transactionRoutes);
 app.use('/api/reports', reportRoutes);
+app.use('/api/users', userRoutes);
 
 // Centralized Error Handler
 app.use(errorHandler);
