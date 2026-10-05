@@ -1,7 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { reportService } from '../services/reportService';
 import LoadingSpinner from '../components/LoadingSpinner';
-import { formatRupiah, formatDate } from '../utils/formatters';
+import {
+  formatRupiah,
+  formatDate,
+  formatDateTimeWIB,
+  getReportDateRangeLabel
+} from '../utils/formatters';
 import { getCachedData, setCachedData } from '../utils/dataCache';
 import {
   BarChart3,
@@ -45,11 +50,14 @@ const ReportsPage = () => {
     }
   };
 
-  const periodLabel = { today: 'Hari_Ini', week: 'Minggu_Ini', month: 'Bulan_Ini', custom: 'Custom' }[period] || period;
+  const dateRangeLabel = getReportDateRangeLabel(report, period, startDate, endDate);
 
   const handleExportExcel = () => {
     if (!report || !report.transactions) return;
     setShowExportModal(false);
+
+    const currentPeriodLabel = getReportDateRangeLabel(report, period, startDate, endDate);
+    const fileName = `Laporan_Penjualan_Boenda_Pie_${currentPeriodLabel}.xls`;
 
     // Build XML Spreadsheet (xls) — opens in Excel with full borders & formatting
     const txRows = (report.transactions || []).map((tx, i) =>
@@ -135,7 +143,7 @@ const ReportsPage = () => {
       <Column ss:Width="100"/>
       <Column ss:Width="120"/>
       <Row>
-        <Cell ss:MergeAcross="5" ss:StyleID="title"><Data ss:Type="String">LAPORAN PENJUALAN BOENDA PIE — ${periodLabel.replace(/_/g, ' ')}</Data></Cell>
+        <Cell ss:MergeAcross="5" ss:StyleID="title"><Data ss:Type="String">LAPORAN PENJUALAN BOENDA PIE — ${currentPeriodLabel}</Data></Cell>
       </Row>
       <Row>
         <Cell ss:MergeAcross="5" ss:StyleID="data"><Data ss:Type="String">Total Omset: Rp ${(report.totalRevenue || 0).toLocaleString('id-ID')} | Jumlah Transaksi: ${report.totalTransactions || 0} | Total Produk Terjual: ${report.totalItemsSold || 0} pcs</Data></Cell>
@@ -159,7 +167,7 @@ const ReportsPage = () => {
       <Column ss:Width="120"/>
       <Column ss:Width="140"/>
       <Row>
-        <Cell ss:MergeAcross="3" ss:StyleID="title"><Data ss:Type="String">PERINGKAT PRODUK TERLARIS — ${periodLabel.replace(/_/g, ' ')}</Data></Cell>
+        <Cell ss:MergeAcross="3" ss:StyleID="title"><Data ss:Type="String">PERINGKAT PRODUK TERLARIS — ${currentPeriodLabel}</Data></Cell>
       </Row>
       <Row/>
       <Row>
@@ -177,7 +185,7 @@ const ReportsPage = () => {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `Laporan_Penjualan_Boenda_Pie_${periodLabel}.xls`;
+    link.download = fileName;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -187,6 +195,9 @@ const ReportsPage = () => {
   const handleExportPDF = () => {
     if (!report) return;
     setShowExportModal(false);
+
+    const currentPeriodLabel = getReportDateRangeLabel(report, period, startDate, endDate);
+    const docTitle = `Laporan_Penjualan_Boenda_Pie_${currentPeriodLabel}`;
 
     const printWindow = window.open('', '_blank', 'width=900,height=700');
     const txRows = (report.transactions || []).map((tx, i) => `
@@ -211,7 +222,7 @@ const ReportsPage = () => {
       <!DOCTYPE html>
       <html>
         <head>
-          <title>Laporan Penjualan Boenda Pie</title>
+          <title>${docTitle}</title>
           <style>
             * { margin: 0; padding: 0; box-sizing: border-box; }
             body { font-family: Arial, sans-serif; font-size: 12px; color: #1a1a1a; padding: 30px; background: white; }
@@ -249,7 +260,7 @@ const ReportsPage = () => {
           <div class="header">
             <h1>🥧 LAPORAN PENJUALAN BOENDA PIE</h1>
             <p>Sokawera, Berkoh, Kec. Purwokerto Sel., Kabupaten Banyumas, Jawa Tengah | Telp/WA: 08986659534</p>
-            <span class="period">Periode: ${periodLabel.replace(/_/g, ' ')}</span>
+            <span class="period">Periode: ${currentPeriodLabel}</span>
           </div>
           <div class="summary-cards">
             <div class="card blue"><p>Total Omset</p><h3>${formatRupiah(report.totalRevenue || 0)}</h3></div>
@@ -270,11 +281,12 @@ const ReportsPage = () => {
               <tbody>${topRows || '<tr><td colspan="4" style="text-align:center;color:#999">Tidak ada data.</td></tr>'}</tbody>
             </table>
           </div>
-          <div class="footer">Dicetak pada: ${new Date().toLocaleString('id-ID')} | Boenda Pie Purwokerto</div>
+          <div class="footer">Dicetak pada: ${formatDateTimeWIB(new Date())} | Boenda Pie Purwokerto</div>
         </body>
       </html>
     `);
     printWindow.document.close();
+    printWindow.document.title = docTitle;
     printWindow.focus();
     setTimeout(() => { printWindow.print(); }, 400);
   };
@@ -486,9 +498,16 @@ const ReportsPage = () => {
               <X className="w-4 h-4 text-slate-500" />
             </button>
 
-            <div className="mb-5">
+            <div className="mb-4">
               <h3 className="text-lg font-black text-slate-900">Download Laporan</h3>
               <p className="text-xs text-slate-500 mt-1 font-medium">Pilih format file yang ingin diunduh.</p>
+              <div className="mt-3 p-3 rounded-2xl bg-[#fff4f9] border border-[#f8cee8]">
+                <p className="text-[10px] font-extrabold text-[#a0336e] uppercase tracking-wider mb-0.5">Periode Transaksi (WIB):</p>
+                <p className="text-xs font-black text-[#3d2c1e]">{dateRangeLabel}</p>
+                <p className="text-[10px] text-slate-500 font-mono mt-1 break-all bg-white/70 p-1.5 rounded-lg border border-[#f8cee8]">
+                  📄 Laporan_Penjualan_Boenda_Pie_{dateRangeLabel}.[xls/pdf]
+                </p>
+              </div>
             </div>
 
             <div className="flex flex-col gap-3">
