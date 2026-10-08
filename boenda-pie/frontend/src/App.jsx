@@ -110,7 +110,10 @@ function App() {
                   </ProtectedRoute>
                 }
               />
-              <Route path="/profile" element={<ProfilePage />} />
+              <Route
+                path="/profile"
+                element={<Navigate to="/users" replace />}
+              />
               <Route
                 path="/reports"
                 element={

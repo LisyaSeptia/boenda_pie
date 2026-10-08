@@ -45,7 +45,7 @@ const getMaterialById = async (req, res, next) => {
 // @access  Private/Admin
 const createMaterial = async (req, res, next) => {
   try {
-    const { code, name, stock, unit, minStock, description } = req.body;
+    const { code, name, category, stock, unit, minStock, description, expiryDate } = req.body;
 
     if (!code || !name || !unit) {
       return errorResponse(res, 400, 'Kode, nama, dan satuan wajib diisi');
@@ -61,10 +61,12 @@ const createMaterial = async (req, res, next) => {
     const material = new Material({
       code: code.toUpperCase(),
       name,
+      category: category || 'Bahan Baku',
       stock: initialStock,
       unit,
       minStock: minStock !== undefined ? Number(minStock) : 1,
-      description: description || ''
+      description: description || '',
+      expiryDate: expiryDate ? new Date(expiryDate) : null
     });
 
     await material.save();
@@ -96,7 +98,7 @@ const createMaterial = async (req, res, next) => {
 // @access  Private/Admin
 const updateMaterial = async (req, res, next) => {
   try {
-    const { name, stock, unit, minStock, description } = req.body;
+    const { name, category, stock, unit, minStock, description, expiryDate } = req.body;
 
     const material = await Material.findById(req.params.id);
     if (!material) {
@@ -106,9 +108,11 @@ const updateMaterial = async (req, res, next) => {
     const oldStock = material.stock;
 
     if (name) material.name = name;
+    if (category) material.category = category;
     if (unit) material.unit = unit;
     if (minStock !== undefined) material.minStock = Number(minStock);
     if (description !== undefined) material.description = description;
+    if (expiryDate !== undefined) material.expiryDate = expiryDate ? new Date(expiryDate) : null;
 
     if (stock !== undefined && Number(stock) !== oldStock) {
       const newStock = Number(stock);

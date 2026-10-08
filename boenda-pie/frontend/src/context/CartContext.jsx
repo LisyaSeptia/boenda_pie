@@ -6,6 +6,7 @@ export const CartProvider = ({ children }) => {
   const [cartItems, setCartItems] = useState([]);
   const [paymentMethod, setPaymentMethod] = useState('CASH');
   const [payAmount, setPayAmount] = useState('');
+  const [selectedPackaging, setSelectedPackaging] = useState('Kertas (Gratis)');
 
   const addToCart = (product) => {
     if (product.stock <= 0) return;
@@ -30,7 +31,8 @@ export const CartProvider = ({ children }) => {
           quantity: 1,
           maxStock: product.stock,
           unit: product.unit,
-          subtotal: product.price
+          subtotal: product.price,
+          isDrink: product.category?.name?.toLowerCase().includes('drink') || product.category?.name?.toLowerCase().includes('minuman')
         }
       ];
     });
@@ -83,7 +85,9 @@ export const CartProvider = ({ children }) => {
         payAmount,
         setPayAmount,
         totalAmount,
-        totalItemsCount
+        totalItemsCount,
+        selectedPackaging,
+        setSelectedPackaging
       }}
     >
       {children}

@@ -51,9 +51,9 @@ const getProductById = async (req, res, next) => {
 // @desc    Create new product
 // @route   POST /api/products
 // @access  Private/Admin
-const createProduct = async (req, res, next) => {
+  const createProduct = async (req, res, next) => {
   try {
-    const { code, name, category, price, stock, minStock, unit, description } = req.body;
+    const { code, name, category, price, stock, minStock, unit, description, image } = req.body;
 
     if (!code || !name || !category || price === undefined) {
       return errorResponse(res, 400, 'Kode, nama, kategori, dan harga wajib diisi');
@@ -74,7 +74,8 @@ const createProduct = async (req, res, next) => {
       stock: initialStock,
       minStock: minStock !== undefined ? Number(minStock) : 5,
       unit: unit || 'pcs',
-      description: description || ''
+      description: description || '',
+      image: image || ''
     });
 
     await product.save();
@@ -107,7 +108,7 @@ const createProduct = async (req, res, next) => {
 // @access  Private/Admin
 const updateProduct = async (req, res, next) => {
   try {
-    const { name, category, price, stock, minStock, unit, description } = req.body;
+    const { name, category, price, stock, minStock, unit, description, image } = req.body;
 
     const product = await Product.findById(req.params.id);
     if (!product) {
@@ -122,6 +123,7 @@ const updateProduct = async (req, res, next) => {
     if (minStock !== undefined) product.minStock = Number(minStock);
     if (unit) product.unit = unit;
     if (description !== undefined) product.description = description;
+    if (image !== undefined) product.image = image;
 
     // Jika stok di-update secara eksplisit via edit produk
     if (stock !== undefined && Number(stock) !== oldStock) {

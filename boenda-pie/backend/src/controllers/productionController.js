@@ -69,6 +69,43 @@ const createProduction = async (req, res, next) => {
   try {
     const { productId, quantity, materialsUsed, notes } = req.body;
 
+    // Helper konversi satuan ke satuan dasar bahan baku
+    const convertToBaseUnit = (qty, fromUnitOrig, toUnitOrig) => {
+      let fromUnit = fromUnitOrig.toLowerCase();
+      let toUnit = toUnitOrig.toLowerCase();
+      if (fromUnit === toUnit) return qty;
+      
+      // Normalize aliases
+      if (fromUnit === 'kilogram') fromUnit = 'kg';
+      if (toUnit === 'kilogram') toUnit = 'kg';
+      if (fromUnit === 'mililiter') fromUnit = 'ml';
+      if (toUnit === 'mililiter') toUnit = 'ml';
+      if (fromUnit === 'pieces') fromUnit = 'pcs';
+      if (toUnit === 'pieces') toUnit = 'pcs';
+
+      // === BERAT ===
+      if (fromUnit === 'gram'  && toUnit === 'kg')    return qty / 1000;
+      if (fromUnit === 'kg'    && toUnit === 'gram')  return qty * 1000;
+      // Sendok
+      if (fromUnit === 'sdm'   && toUnit === 'kg')    return (qty * 15) / 1000;
+      if (fromUnit === 'sdm'   && toUnit === 'gram')  return qty * 15;
+      if (fromUnit === 'sdt'   && toUnit === 'kg')    return (qty * 5) / 1000;
+      if (fromUnit === 'sdt'   && toUnit === 'gram')  return qty * 5;
+      // === VOLUME ===
+      if (fromUnit === 'ml'    && toUnit === 'liter') return qty / 1000;
+      if (fromUnit === 'liter' && toUnit === 'ml')    return qty * 1000;
+      // === BOTOL: asumsi 1 botol = 600 ml ===
+      if (fromUnit === 'ml'    && toUnit === 'botol') return qty / 600;
+      if (fromUnit === 'liter' && toUnit === 'botol') return qty / 0.6;
+      // === DUS: asumsi 1 dus = 12 pcs ===
+      if (fromUnit === 'pcs'   && toUnit === 'dus')   return qty / 12;
+      if (fromUnit === 'dus'   && toUnit === 'pcs')   return qty * 12;
+      // === PACK: asumsi 1 pack = 100 gram sprinkle ===
+      if (fromUnit === 'gram'  && toUnit === 'pack')  return qty / 100;
+      // Tidak dikenali → langsung
+      return qty;
+    };
+
     if (!productId || !quantity || !materialsUsed || !Array.isArray(materialsUsed) || materialsUsed.length === 0) {
       if (useTransaction) {
         await session.abortTransaction();
@@ -124,7 +161,11 @@ const createProduction = async (req, res, next) => {
         return errorResponse(res, 404, `Bahan baku dengan ID ${materialId} tidak ditemukan`);
       }
 
-      if (material.stock < numUsedQty) {
+      // Konversi jumlah ke satuan dasar bahan baku
+      const usedUnit    = item.usedUnit || material.unit;
+      const convertedQty = convertToBaseUnit(numUsedQty, usedUnit, material.unit);
+
+      if (material.stock < convertedQty) {
         if (useTransaction) {
           await session.abortTransaction();
           session.endSession();
@@ -132,14 +173,16 @@ const createProduction = async (req, res, next) => {
         return errorResponse(
           res,
           400,
-          `Stok bahan baku '${material.name}' tidak mencukupi. Stok tersedia: ${material.stock} ${material.unit}, dibutuhkan: ${numUsedQty} ${material.unit}`
+          `Stok bahan baku '${material.name}' tidak mencukupi. Stok tersedia: ${material.stock} ${material.unit}, dibutuhkan: ${convertedQty.toFixed(4)} ${material.unit} (${numUsedQty} ${usedUnit})`
         );
       }
 
       validatedMaterials.push({
         material,
-        quantity: numUsedQty,
-        unit: material.unit
+        quantity: convertedQty,          // nilai yg akan dipotong (sudah dikonversi)
+        displayQty: numUsedQty,          // nilai yang diinput user
+        usedUnit,                        // satuan yang diinput user
+        unit: material.unit              // satuan dasar bahan baku
       });
     }
 
@@ -154,8 +197,10 @@ const createProduction = async (req, res, next) => {
       materialsUsed: validatedMaterials.map((m) => ({
         materialId: m.material._id,
         materialName: m.material.name,
-        quantity: m.quantity,
-        unit: m.unit
+        quantity: m.quantity,            // jumlah terkonversi (satuan dasar)
+        displayQty: m.displayQty,        // jumlah input user
+        usedUnit: m.usedUnit,            // satuan input user
+        unit: m.unit                     // satuan dasar
       })),
       notes: notes || '',
       userId: req.user._id
@@ -182,7 +227,7 @@ const createProduction = async (req, res, next) => {
             quantity: usedQty,
             unit,
             usageDate: new Date(),
-            purpose: `Produksi ${prodQty} ${product.unit} ${product.name} (${productionNumber})`,
+            purpose: `Produksi ${prodQty} ${product.unit} ${product.name} (${productionNumber}) — input: ${item.displayQty} ${item.usedUnit}`,
             userId: req.user._id
           }
         ],
@@ -253,8 +298,86 @@ const createProduction = async (req, res, next) => {
   }
 };
 
+// @desc    Delete production (Revert stock)
+// @route   DELETE /api/productions/:id
+// @access  Private/Admin
+const deleteProduction = async (req, res, next) => {
+  let session = null;
+  let useTransaction = false;
+
+  try {
+    session = await mongoose.startSession();
+    session.startTransaction();
+    useTransaction = true;
+  } catch (sessErr) {
+    session = null;
+    useTransaction = false;
+  }
+
+  const sessionOptions = useTransaction ? { session } : {};
+
+  try {
+    const production = useTransaction
+      ? await Production.findById(req.params.id).session(session)
+      : await Production.findById(req.params.id);
+
+    if (!production) {
+      if (useTransaction) {
+        await session.abortTransaction();
+        session.endSession();
+      }
+      return errorResponse(res, 404, 'Data produksi tidak ditemukan');
+    }
+
+    // 1. Kurangi stok produk yang dihasilkan
+    const product = useTransaction
+      ? await Product.findById(production.productId).session(session)
+      : await Product.findById(production.productId);
+    
+    if (product) {
+      product.stock -= production.quantity;
+      await product.save(sessionOptions);
+    }
+
+    // 2. Kembalikan stok bahan baku
+    for (const item of production.materialsUsed) {
+      const material = useTransaction
+        ? await Material.findById(item.materialId).session(session)
+        : await Material.findById(item.materialId);
+
+      if (material) {
+        material.stock += item.quantity;
+        await material.save(sessionOptions);
+      }
+    }
+
+    // 3. Hapus StockMovements dan MaterialUsages terkait produksi ini
+    if (useTransaction) {
+      await StockMovement.deleteMany({ referenceId: production._id }).session(session);
+      await MaterialUsage.deleteMany({ productionId: production._id }).session(session);
+      await Production.findByIdAndDelete(production._id).session(session);
+      
+      await session.commitTransaction();
+      session.endSession();
+    } else {
+      await StockMovement.deleteMany({ referenceId: production._id });
+      await MaterialUsage.deleteMany({ productionId: production._id });
+      await Production.findByIdAndDelete(production._id);
+    }
+
+    return successResponse(res, 200, 'Produksi berhasil dihapus dan stok dikembalikan');
+  } catch (error) {
+    if (useTransaction && session) {
+      await session.abortTransaction();
+      session.endSession();
+    }
+    next(error);
+  }
+};
+
 module.exports = {
   getProductions,
   getProductionById,
-  createProduction
+  createProduction,
+  deleteProduction
 };

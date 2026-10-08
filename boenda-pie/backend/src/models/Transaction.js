@@ -72,6 +72,18 @@ const transactionSchema = new mongoose.Schema(
     cashierName: {
       type: String,
       required: true
+    },
+    packaging: {
+      type: String,
+      default: 'KERTAS'
+    },
+    packagingFee: {
+      type: Number,
+      default: 0
+    },
+    notes: {
+      type: String,
+      default: ''
     }
   },
   {

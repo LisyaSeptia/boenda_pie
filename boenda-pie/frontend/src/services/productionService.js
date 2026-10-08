@@ -12,5 +12,9 @@ export const productionService = {
   create: async (data) => {
     const response = await api.post('/productions', data);
     return response.data;
+  },
+  delete: async (id) => {
+    const response = await api.delete(`/productions/${id}`);
+    return response.data;
   }
 };

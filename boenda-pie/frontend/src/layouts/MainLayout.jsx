@@ -12,7 +12,7 @@ const MainLayout = () => {
       case '/dashboard':    return 'Dashboard System';
       case '/pos':          return 'Kasir & Point of Sale (POS)';
       case '/products':     return 'Manajemen Data Produk';
-      case '/materials':    return 'Manajemen Bahan Baku';
+      case '/materials':    return 'Manajemen Bahan & Kemasan';
       case '/production':   return 'Manajemen Produksi & Bahan';
       case '/stock':        return 'Aktivitas Stok';
       case '/transactions': return 'Data & Riwayat Transaksi';

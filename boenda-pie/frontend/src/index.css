@@ -67,3 +67,29 @@ body {
     print-color-adjust: exact;
   }
 }
+
+/* ============================================================
+   DISMISS BUTTON — animasi ×
+   ============================================================ */
+.btn-dismiss {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  flex-shrink: 0;
+  opacity: 0.7;
+  transition: opacity 0.18s ease, background 0.18s ease, transform 0.18s cubic-bezier(.34,1.56,.64,1);
+}
+.btn-dismiss:hover {
+  opacity: 1;
+  background: rgba(0,0,0,0.08);
+  transform: scale(1.18) rotate(90deg);
+}
+.btn-dismiss:active {
+  transform: scale(0.9) rotate(90deg);
+}

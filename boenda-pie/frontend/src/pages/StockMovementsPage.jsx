@@ -191,12 +191,12 @@ const StockMovementsPage = () => {
             <table className="w-full text-left text-xs text-slate-700 min-w-[700px]">
               <thead className="bg-[#fffbea] text-[#8a6000] font-extrabold border-b-2 border-[#f5d96b] uppercase tracking-wider text-[11px]">
                 <tr>
-                  <th className="px-3 py-3 whitespace-nowrap">Waktu</th>
-                  <th className="px-2 py-3">Item &amp; Tipe</th>
-                  <th className="px-2 py-3 whitespace-nowrap">Jenis</th>
-                  <th className="px-2 py-3 whitespace-nowrap">Perubahan</th>
-                  <th className="px-2 py-3 whitespace-nowrap">Stok (Awal &rarr; Akhir)</th>
-                  <th className="px-2 py-3">No. Ref &amp; Ket</th>
+                  <th className="p-4 whitespace-nowrap">Waktu</th>
+                  <th className="p-4">Item &amp; Tipe</th>
+                  <th className="p-4 whitespace-nowrap">Jenis</th>
+                  <th className="p-4 whitespace-nowrap">Perubahan</th>
+                  <th className="p-4 whitespace-nowrap">Stok (Awal &rarr; Akhir)</th>
+                  <th className="p-4">No. Ref &amp; Ket</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -204,10 +204,10 @@ const StockMovementsPage = () => {
                   const isPositive = mov.quantity > 0;
                   return (
                     <tr key={mov._id} className="hover:bg-amber-50/30 transition-colors">
-                      <td className="px-3.5 py-3 align-top text-slate-600 font-medium text-[11px]">
+                      <td className="p-4 align-top text-slate-600 font-medium text-[11px]">
                         {formatDate(mov.createdAt)}
                       </td>
-                      <td className="px-2 py-3 align-top">
+                      <td className="p-4 align-top">
                         <div className="font-bold text-slate-900 leading-snug break-words">{mov.itemName}</div>
                         <div className="mt-1">
                           <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-extrabold border ${
@@ -217,7 +217,7 @@ const StockMovementsPage = () => {
                           </span>
                         </div>
                       </td>
-                      <td className="px-2 py-3 align-top">
+                      <td className="p-4 align-top">
                         <span className={`font-extrabold px-2 py-0.5 rounded text-[11px] whitespace-nowrap ${
                           mov.type === 'STOCK_IN'   ? 'bg-emerald-50 text-emerald-700' :
                           mov.type === 'STOCK_OUT'  ? 'bg-rose-50 text-rose-700' :
@@ -228,7 +228,7 @@ const StockMovementsPage = () => {
                           {TYPE_LABEL[mov.type] || mov.type}
                         </span>
                       </td>
-                      <td className="px-3.5 py-3 align-top">
+                      <td className="p-4 align-top">
                         <div className={`font-black text-xs inline-flex items-center gap-1 ${
                           isPositive ? 'text-emerald-600' : 'text-rose-600'
                         }`}>
@@ -236,12 +236,12 @@ const StockMovementsPage = () => {
                           <span>{isPositive ? `+${mov.quantity}` : mov.quantity} {mov.unit}</span>
                         </div>
                       </td>
-                      <td className="px-3.5 py-3 align-top text-slate-600 font-mono text-xs">
+                      <td className="p-4 align-top text-slate-600 font-mono text-xs">
                         <span>{mov.stockBefore} &rarr; </span>
                         <strong className="text-slate-900 font-black">{mov.stockAfter}</strong>
                         <span className="text-[11px] ml-1">{mov.unit}</span>
                       </td>
-                      <td className="px-3.5 py-3 align-top">
+                      <td className="p-4 align-top">
                         <div className="font-semibold text-slate-800 break-words text-xs">{mov.referenceNo || '-'}</div>
                         {mov.notes && (
                           <div className="text-[11px] text-slate-600 font-medium mt-0.5 leading-snug break-words">{mov.notes}</div>

@@ -14,6 +14,11 @@ const materialSchema = new mongoose.Schema(
       required: [true, 'Nama bahan baku wajib diisi'],
       trim: true
     },
+    category: {
+      type: String,
+      enum: ['Bahan Baku', 'Bahan Kemasan'],
+      default: 'Bahan Baku'
+    },
     stock: {
       type: Number,
       required: [true, 'Stok bahan baku wajib diisi'],
@@ -34,6 +39,10 @@ const materialSchema = new mongoose.Schema(
     description: {
       type: String,
       default: ''
+    },
+    expiryDate: {
+      type: Date,
+      default: null
     }
   },
   {

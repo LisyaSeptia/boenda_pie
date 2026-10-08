@@ -119,22 +119,22 @@ const TransactionsPage = () => {
             <table className="w-full text-left text-xs text-slate-700 min-w-[750px]">
               <thead className="bg-[#e8f7ff] text-[#1a6fa0] font-extrabold border-b-2 border-[#7dcef5] uppercase tracking-wider text-[11px]">
                 <tr>
-                  <th className="px-3.5 py-3 whitespace-nowrap">No. Invoice</th>
-                  <th className="px-3.5 py-3 whitespace-nowrap">Tanggal &amp; Waktu</th>
-                  <th className="px-3.5 py-3 whitespace-nowrap">Kasir</th>
-                  <th className="px-3.5 py-3">Rincian Item</th>
-                  <th className="px-3.5 py-3 whitespace-nowrap">Metode</th>
-                  <th className="px-3.5 py-3 whitespace-nowrap">Total</th>
-                  <th className="px-3.5 py-3 text-center whitespace-nowrap">Struk</th>
+                  <th className="p-4 whitespace-nowrap">No. Invoice</th>
+                  <th className="p-4 whitespace-nowrap">Tanggal &amp; Waktu</th>
+                  <th className="p-4 whitespace-nowrap">Kasir</th>
+                  <th className="p-4">Rincian Item</th>
+                  <th className="p-4 whitespace-nowrap">Metode</th>
+                  <th className="p-4 whitespace-nowrap">Total</th>
+                  <th className="p-4 text-center whitespace-nowrap">Struk</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {transactions.map((tx) => (
                   <tr key={tx._id} className="hover:bg-blue-50/30 transition-colors">
-                    <td className="px-3.5 py-3 font-bold text-slate-900 break-words text-[11px]">{tx.invoiceNumber}</td>
-                    <td className="px-3.5 py-3 text-slate-600 font-medium text-[11px]">{formatDate(tx.date)}</td>
-                    <td className="px-3.5 py-3 font-bold text-slate-800 break-words">{tx.cashierName}</td>
-                    <td className="px-3.5 py-3">
+                    <td className="p-4 font-bold text-slate-900 break-words text-[11px]">{tx.invoiceNumber}</td>
+                    <td className="p-4 text-slate-600 font-medium text-[11px]">{formatDate(tx.date)}</td>
+                    <td className="p-4 font-bold text-slate-800 break-words">{tx.cashierName}</td>
+                    <td className="p-4">
                       <div className="space-y-0.5">
                         {tx.items?.map((it, idx) => (
                           <div key={idx} className="text-xs text-slate-600 font-medium leading-snug break-words">
@@ -143,7 +143,7 @@ const TransactionsPage = () => {
                         ))}
                       </div>
                     </td>
-                    <td className="px-3.5 py-3">
+                    <td className="p-4">
                       <span className={`inline-flex items-center px-2 py-0.5 font-extrabold rounded-lg text-[10px] border ${
                         tx.paymentMethod === 'CASH'
                           ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
@@ -154,10 +154,10 @@ const TransactionsPage = () => {
                         {tx.paymentMethod}
                       </span>
                     </td>
-                    <td className="px-3.5 py-3 font-black text-slate-900 text-xs">
+                    <td className="p-4 font-black text-slate-900 text-xs">
                       {formatRupiah(tx.totalAmount)}
                     </td>
-                    <td className="px-3.5 py-3 text-center">
+                    <td className="p-4 text-center">
                       <button
                         onClick={() => handleViewReceipt(tx)}
                         className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-colors inline-flex items-center justify-center gap-1 text-[11px]"

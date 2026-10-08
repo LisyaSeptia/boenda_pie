@@ -131,7 +131,7 @@ const DashboardAdminPage = () => {
               ))}
             </div>
           ) : (
-            <p style={{ fontSize: 12, color: '#475569', fontWeight: 500, textAlign: 'center', padding: '12px 0', margin: 0 }}>Semua stok produk dalam kondisi aman. ✅</p>
+            <p style={{ fontSize: 12, color: '#475569', fontWeight: 500, textAlign: 'center', padding: '12px 0', margin: 0 }}>Semua stok produk dalam kondisi aman ✅</p>
           )}
         </div>
 

@@ -37,7 +37,7 @@ const productSchema = new mongoose.Schema(
     },
     unit: {
       type: String,
-      default: 'pcs'
+      default: 'Pieces'
     },
     status: {
       type: String,
@@ -47,6 +47,10 @@ const productSchema = new mongoose.Schema(
     description: {
       type: String,
       default: ''
+    },
+    image: {
+      type: String,
+      default: '' // Can store base64 string or image URL
     }
   },
   {

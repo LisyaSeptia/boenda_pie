@@ -433,48 +433,103 @@ const ReportsPage = () => {
             </div>
           </div>
 
-          {/* Top Products Table */}
+          {/* Top Products Bar Chart */}
           <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-xs">
-            <h3 className="font-bold text-slate-900 text-base mb-4">Peringkat Produk Terlaris (Top Selling Products)</h3>
-
-            <div className="w-full overflow-x-auto">
-              <table className="w-full text-left text-xs text-slate-700 min-w-[550px]">
-                <thead className="bg-[#fff4f9] text-[#a0336e] font-extrabold border-b-2 border-[#f0a3d0] uppercase tracking-wider text-[11px]">
-                  <tr>
-                    <th className="p-3 whitespace-nowrap">Peringkat</th>
-                    <th className="p-3">Nama Produk Pie</th>
-                    <th className="p-3 whitespace-nowrap">Jumlah Terjual</th>
-                    <th className="p-3 whitespace-nowrap">Total Kontribusi Omset</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {report?.topProducts && report.topProducts.length > 0 ? (
-                    report.topProducts.map((prod, index) => (
-                      <tr key={prod.productId} className="hover:bg-pink-50/30 transition-colors">
-                        <td className="p-3 whitespace-nowrap">
-                          <span className={`w-6 h-6 rounded-full font-extrabold flex items-center justify-center text-xs ${
-                            index === 0 ? 'bg-[#f8cee8] text-[#a0336e] border border-[#f0a3d0] font-black' : 'bg-slate-100 text-slate-700'
-                          }`}>
-                            {index + 1}
-                          </span>
-                        </td>
-                        <td className="p-3 font-bold text-slate-900 min-w-[160px]">{prod.productName}</td>
-                        <td className="p-3 font-extrabold text-slate-800 whitespace-nowrap">
-                          {prod.quantitySold} pcs
-                        </td>
-                        <td className="p-3 font-black text-slate-900 whitespace-nowrap">
-                          {formatRupiah(prod.totalRevenue)}
-                        </td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td colSpan="4" className="p-4 text-center text-slate-400">Belum ada data penjualan pada periode ini.</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+            {/* Header */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ width: 36, height: 36, borderRadius: 10, background: '#fff0f7', border: '1.5px solid #f0a3d0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <BarChart3 style={{ width: 18, height: 18, color: '#a0336e' }} />
+                </div>
+                <div>
+                  <h3 style={{ fontWeight: 800, fontSize: 14, color: '#1e293b', margin: 0 }}>Produk Terlaris</h3>
+                  <p style={{ fontSize: 11, color: '#94a3b8', margin: 0, fontWeight: 500 }}>Berdasarkan jumlah terjual periode ini</p>
+                </div>
+              </div>
+              <span style={{ fontSize: 10, fontWeight: 700, color: '#a0336e', background: '#fff0f7', border: '1px solid #f0a3d0', borderRadius: 20, padding: '3px 10px', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                Top {report?.topProducts?.length || 0} Produk
+              </span>
             </div>
+
+            {report?.topProducts && report.topProducts.length > 0 ? (() => {
+              const maxQty = Math.max(...report.topProducts.map(p => p.quantitySold), 1);
+              const maxRev = Math.max(...report.topProducts.map(p => p.totalRevenue), 1);
+              const medals = ['🥇', '🥈', '🥉'];
+              const barColors = [
+                { bar: 'linear-gradient(90deg, #f0a3d0, #f8cee8)', text: '#a0336e', bg: '#fff0f7', border: '#f0a3d0' },
+                { bar: 'linear-gradient(90deg, #f5d96b, #fcf0c0)', text: '#8a6000', bg: '#fffbea', border: '#f5d96b' },
+                { bar: 'linear-gradient(90deg, #7dcef5, #beeaff)', text: '#1a6fa0', bg: '#e8f7ff', border: '#7dcef5' },
+              ];
+
+              return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  {report.topProducts.map((prod, index) => {
+                    const color = barColors[index] || { bar: 'linear-gradient(90deg, #e2e8f0, #f1f5f9)', text: '#475569', bg: '#f8fafc', border: '#e2e8f0' };
+
+                    return (
+                      <div 
+                        key={prod.productId} 
+                        style={{ 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          justifyContent: 'space-between', 
+                          padding: '16px 20px', 
+                          background: index === 0 ? 'linear-gradient(135deg, #fff0f7 0%, #ffffff 100%)' : index === 1 ? 'linear-gradient(135deg, #fffbea 0%, #ffffff 100%)' : 'white', 
+                          borderRadius: 20, 
+                          border: `1.5px solid ${color.border}`, 
+                          boxShadow: index === 0 ? '0 4px 16px rgba(160, 51, 110, 0.08)' : index === 1 ? '0 4px 16px rgba(138, 96, 0, 0.06)' : '0 2px 10px rgba(0,0,0,0.02)',
+                          transition: 'transform 0.2s',
+                          cursor: 'default'
+                        }}
+                        className="hover:-translate-y-0.5"
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                          {/* Medal / Rank */}
+                          <div 
+                            style={{ 
+                              width: 46, 
+                              height: 46, 
+                              borderRadius: 14, 
+                              background: index < 3 ? 'white' : color.bg, 
+                              border: index < 3 ? `2px solid ${color.border}` : 'none',
+                              display: 'flex', 
+                              alignItems: 'center', 
+                              justifyContent: 'center', 
+                              flexShrink: 0, 
+                              fontSize: 22,
+                              boxShadow: index < 3 ? `0 4px 12px ${color.border}60` : 'none'
+                            }}
+                          >
+                            {index < 3 ? medals[index] : <span style={{ fontSize: 14, fontWeight: 900, color: color.text }}>#{index + 1}</span>}
+                          </div>
+
+                          {/* Product Name */}
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontWeight: 900, fontSize: 15, color: '#1e293b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', letterSpacing: -0.3 }}>
+                              {prod.productName}
+                            </div>
+                            <div style={{ fontSize: 12, color: '#64748b', fontWeight: 600, marginTop: 3 }}>
+                              <span style={{ color: color.text, fontWeight: 800 }}>{formatRupiah(prod.totalRevenue)}</span> omset
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Qty Badge */}
+                        <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, background: 'white', padding: '6px 14px', borderRadius: 12, border: `1.5px dashed ${color.border}` }}>
+                          <span style={{ fontSize: 22, fontWeight: 900, color: color.text, letterSpacing: -1, lineHeight: 1 }}>{prod.quantitySold}</span>
+                          <span style={{ fontSize: 11, fontWeight: 800, color: color.text, opacity: 0.7, textTransform: 'uppercase' }}>pcs</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })() : (
+              <div style={{ padding: '32px 0', textAlign: 'center', color: '#94a3b8' }}>
+                <BarChart3 style={{ width: 36, height: 36, margin: '0 auto 10px', opacity: 0.3 }} />
+                <p style={{ fontSize: 13, fontWeight: 600 }}>Belum ada data penjualan pada periode ini.</p>
+              </div>
+            )}
           </div>
         </>
       )}

@@ -30,7 +30,7 @@ const createTransaction = async (req, res, next) => {
   const sessionOptions = useTransaction ? { session } : {};
 
   try {
-    const { items, payAmount, paymentMethod } = req.body;
+    const { items, payAmount, paymentMethod, packaging, packagingFee, notes } = req.body;
 
     if (!items || !Array.isArray(items) || items.length === 0) {
       if (useTransaction) {
@@ -107,6 +107,9 @@ const createTransaction = async (req, res, next) => {
       });
     }
 
+    const safePackagingFee = Number(packagingFee) || 0;
+    calculatedTotal += safePackagingFee;
+
     if (numPayAmount < calculatedTotal) {
       if (useTransaction) {
         await session.abortTransaction();
@@ -133,7 +136,10 @@ const createTransaction = async (req, res, next) => {
       paymentMethod: paymentMethod || 'CASH',
       status: 'COMPLETED',
       cashierId: req.user._id,
-      cashierName: (req.body.cashierName && req.body.cashierName.trim()) || req.user.name || req.user.username
+      cashierName: (req.body.cashierName && req.body.cashierName.trim()) || req.user.name || req.user.username,
+      packaging: packaging || 'KERTAS',
+      packagingFee: safePackagingFee,
+      notes: notes || ''
     });
 
     await transaction.save(sessionOptions);

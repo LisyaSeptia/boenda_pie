@@ -21,17 +21,29 @@ const Navbar = ({ toggleSidebar, title = 'Boenda Pie Purwokerto' }) => {
       </div>
 
       <div className="flex items-center gap-3">
-        <Link
-          to="/profile"
-          style={{ background: '#fff4e7', border: '1.5px solid #ffdbb5', color: '#9a4a00', textDecoration: 'none' }}
-          className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold hover:border-[#f0a3d0] hover:bg-[#fff0f7] transition-all cursor-pointer shadow-sm"
-          title="Buka Profil Saya"
-        >
-          <UserIcon className="w-3.5 h-3.5" style={{ color: '#f0a3d0' }} />
-          <span>{user?.name}</span>
-          <span style={{ color: '#ffdbb5' }}>|</span>
-          <span style={{ color: '#a0336e' }} className="font-extrabold uppercase">{user?.role}</span>
-        </Link>
+        {user?.role === 'ADMIN' ? (
+          <Link
+            to="/users"
+            style={{ background: '#fff4e7', border: '1.5px solid #ffdbb5', color: '#9a4a00', textDecoration: 'none' }}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold hover:border-[#f0a3d0] hover:bg-[#fff0f7] transition-all cursor-pointer shadow-sm"
+            title="Kelola Akun di Manajemen Pengguna"
+          >
+            <UserIcon className="w-3.5 h-3.5" style={{ color: '#f0a3d0' }} />
+            <span>{user?.name}</span>
+            <span style={{ color: '#ffdbb5' }}>|</span>
+            <span style={{ color: '#a0336e' }} className="font-extrabold uppercase">{user?.role}</span>
+          </Link>
+        ) : (
+          <div
+            style={{ background: '#fff4e7', border: '1.5px solid #ffdbb5', color: '#9a4a00' }}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold shadow-sm select-none"
+          >
+            <UserIcon className="w-3.5 h-3.5" style={{ color: '#7dcef5' }} />
+            <span>{user?.name}</span>
+            <span style={{ color: '#ffdbb5' }}>|</span>
+            <span style={{ color: '#1a6fa0' }} className="font-extrabold uppercase">{user?.role}</span>
+          </div>
+        )}
       </div>
     </header>
   );

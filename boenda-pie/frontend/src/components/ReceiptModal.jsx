@@ -120,6 +120,29 @@ const ReceiptModal = ({ isOpen, onClose, transaction }) => {
     ctx.fillText(badgeTxt, bx + bw / 2, y);
     y += lineH;
 
+    // Packaging line (if exists)
+    if (transaction.packaging) {
+      ctx.font = '11px Arial'; ctx.fillStyle = '#555'; ctx.textAlign = 'left';
+      ctx.fillText('Packaging:', pad, y);
+      const pkgTxt = (transaction.packaging === 'KARDUS' ? 'Kardus' : 'Kertas') +
+        (transaction.packagingFee > 0 ? ` (+${formatRupiah(transaction.packagingFee)})` : ' (Gratis)');
+      ctx.font = 'bold 10px Arial'; ctx.fillStyle = '#8a6000'; ctx.textAlign = 'right';
+      ctx.fillText(pkgTxt, W - pad, y);
+      y += lineH;
+    }
+
+    // Notes line
+    if (transaction.notes) {
+      ctx.font = '11px Arial'; ctx.fillStyle = '#555'; ctx.textAlign = 'left';
+      ctx.fillText('Request:', pad, y);
+      ctx.font = 'italic 10px Arial'; ctx.fillStyle = '#1a1a1a'; ctx.textAlign = 'right';
+      // Truncate note if too long for one line
+      const maxLen = 25;
+      const noteTxt = transaction.notes.length > maxLen ? transaction.notes.substring(0, maxLen) + '...' : transaction.notes;
+      ctx.fillText(noteTxt, W - pad, y);
+      y += lineH;
+    }
+
     dashedLine(y); y += 14;
 
     // ---- Items ----
@@ -336,6 +359,12 @@ const ReceiptModal = ({ isOpen, onClose, transaction }) => {
                 <div className="meta-row"><span className="label">Waktu:</span><span className="value">{formatDate(transaction.date || transaction.createdAt)}</span></div>
                 <div className="meta-row"><span className="label">Kasir:</span><span className="value">{transaction.cashierName}</span></div>
                 <div className="meta-row"><span className="label">Metode:</span><span className="value"><span className="badge">{transaction.paymentMethod}</span></span></div>
+                {transaction.packaging && (
+                  <div className="meta-row"><span className="label">Packaging:</span><span className="value"><span className="badge">{transaction.packaging === 'KARDUS' ? 'Kardus' : 'Kertas'}{transaction.packagingFee > 0 ? ` (+${formatRupiah(transaction.packagingFee)})` : ' (Gratis)'}</span></span></div>
+                )}
+                {transaction.notes && (
+                  <div className="meta-row"><span className="label">Request:</span><span className="value" style={{ fontStyle: 'italic', maxWidth: '60%', textAlign: 'right' }}>{transaction.notes}</span></div>
+                )}
               </div>
               <div className="items-section">
                 {transaction.items && transaction.items.map((item, index) => (
@@ -385,8 +414,23 @@ const ReceiptModal = ({ isOpen, onClose, transaction }) => {
             </div>
             <div className="flex justify-between">
               <span className="text-slate-500">Metode:</span>
-              <span className="font-bold bg-pink-100 text-pink-800 px-1.5 py-0.5 rounded text-[10px]">{transaction.paymentMethod}</span>
+              <span className="font-semibold text-slate-700">{transaction.paymentMethod}</span>
             </div>
+            {transaction.packaging && (
+              <div className="flex justify-between">
+                <span className="text-slate-500">Packaging:</span>
+                <span className="font-semibold text-slate-700">
+                  {transaction.packaging === 'KARDUS' ? 'Kardus' : 'Kertas'}
+                  {transaction.packagingFee > 0 ? ` (+${formatRupiah(transaction.packagingFee)})` : ' (Gratis)'}
+                </span>
+              </div>
+            )}
+            {transaction.notes && (
+              <div className="flex justify-between items-start gap-4">
+                <span className="text-slate-500">Request:</span>
+                <span className="font-semibold text-slate-700 italic text-right break-words">{transaction.notes}</span>
+              </div>
+            )}
           </div>
 
           {/* Items */}

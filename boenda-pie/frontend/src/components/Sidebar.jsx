@@ -25,19 +25,18 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
     { path: '/dashboard', label: 'Beranda', icon: LayoutDashboard, color: 'blue' },
     { path: '/pos', label: 'Kasir', icon: ShoppingBag, color: 'pink' },
     { path: '/products', label: 'Data Produk', icon: Package, color: 'yellow' },
-    { path: '/materials', label: 'Data Bahan Baku', icon: Wheat, color: 'blue' },
+    { path: '/materials', label: 'Data Bahan & Kemasan', icon: Wheat, color: 'blue' },
     { path: '/production', label: 'Produksi', icon: Factory, color: 'pink' },
     { path: '/stock', label: 'Aktivitas Stok', icon: ArrowUpDown, color: 'yellow' },
     { path: '/transactions', label: 'Transaksi', icon: Receipt, color: 'blue' },
     { path: '/reports', label: 'Laporan Penjualan', icon: BarChart3, color: 'pink' },
-    { path: '/profile', label: 'Profil Saya', icon: UserCircle, color: 'blue' }
+    { path: '/users', label: 'Manajemen Pengguna', icon: Users, color: 'yellow' }
   ];
 
   const kasirNav = [
     { path: '/dashboard', label: 'Beranda', icon: LayoutDashboard, color: 'blue' },
     { path: '/pos', label: 'Kasir', icon: ShoppingBag, color: 'pink' },
     { path: '/transactions', label: 'Riwayat Transaksi', icon: Receipt, color: 'blue' },
-    { path: '/profile', label: 'Profil Saya', icon: UserCircle, color: 'yellow' }
   ];
 
   const navItems = isAdmin ? adminNav : kasirNav;

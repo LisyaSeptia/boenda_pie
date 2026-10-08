@@ -7,7 +7,7 @@ import Modal from '../components/Modal';
 import Toast from '../components/Toast';
 import { formatDate } from '../utils/formatters';
 import { getCachedData, setCachedData } from '../utils/dataCache';
-import { Plus, Factory, Wheat, Trash2, CheckCircle2, ChevronRight } from 'lucide-react';
+import { Plus, Factory, Wheat, Trash2, CheckCircle2, ChevronRight, Eye, Edit3 } from 'lucide-react';
 
 const ProductionPage = () => {
   const [productions, setProductions] = useState(() => getCachedData('productions') || []);
@@ -18,6 +18,8 @@ const ProductionPage = () => {
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [detailProduction, setDetailProduction] = useState(null);
+  const [deleteId, setDeleteId] = useState(null);
+  const [editProductionId, setEditProductionId] = useState(null);
 
   // Toast State
   const [toast, setToast] = useState({ message: '', type: 'success' });
@@ -67,14 +69,24 @@ const ProductionPage = () => {
   };
 
   const handleOpenModal = () => {
+    setEditProductionId(null);
     setProductId(products.length > 0 ? products[0]._id : '');
-    setQuantity('50');
+    setQuantity('1');
     setNotes('');
-    setMaterialsUsed(
-      materials.length > 0
-        ? [{ materialId: materials[0]._id, quantity: '1' }]
-        : []
-    );
+    setMaterialsUsed([]); // mulai kosong, user tambah manual
+    setIsModalOpen(true);
+  };
+
+  const handleOpenEditModal = (prod) => {
+    setEditProductionId(prod._id);
+    setProductId(prod.productId?._id || (products.length > 0 ? products[0]._id : ''));
+    setQuantity(String(prod.quantity));
+    setNotes(prod.notes || '');
+    setMaterialsUsed(prod.materialsUsed.map(m => ({
+      materialId: m.materialId,
+      quantity: String(m.displayQty || m.quantity),
+      usedUnit: m.usedUnit || m.unit
+    })));
     setIsModalOpen(true);
   };
 
@@ -82,7 +94,7 @@ const ProductionPage = () => {
     if (materials.length === 0) return;
     setMaterialsUsed([
       ...materialsUsed,
-      { materialId: materials[0]._id, quantity: '1' }
+      { materialId: materials[0]._id, quantity: '1', usedUnit: materials[0].unit }
     ]);
   };
 
@@ -93,7 +105,46 @@ const ProductionPage = () => {
   const handleMaterialChange = (index, field, value) => {
     const updated = [...materialsUsed];
     updated[index][field] = value;
+    // Jika ganti material, reset usedUnit ke satuan dasar bahan baru
+    if (field === 'materialId') {
+      const newMat = materials.find((m) => m._id === value);
+      if (newMat) updated[index].usedUnit = newMat.unit;
+    }
     setMaterialsUsed(updated);
+  };
+
+  // Daftar satuan kompatibel berdasarkan satuan dasar bahan
+  // Logika: satuan apa saja yang bisa dikonversi ke satuan dasar tersebut
+  const getCompatibleUnits = (baseUnit) => {
+    switch (baseUnit.toLowerCase()) {
+      // === BERAT ===
+      case 'kilogram':
+      case 'kg':    return ['Gram', 'Kilogram', 'sdm', 'sdt'];
+      case 'gram':  return ['Gram', 'Kilogram', 'sdm', 'sdt'];
+      // === VOLUME ===
+      case 'liter': return ['Mililiter', 'Liter'];         // 1 liter = 1000 ml
+      case 'mililiter':
+      case 'ml':    return ['Mililiter', 'Liter'];         // 1 ml = 0.001 liter
+      // === BOTOL (bisa dipakai dalam ml atau liter) ===
+      case 'botol': return ['Mililiter', 'Liter', 'Botol'];
+      // === BUTIR / BUAH ===
+      case 'butir': return ['Butir'];
+      case 'buah':  return ['Buah'];
+      // === PACK ===
+      case 'pack':  return ['Gram', 'Pieces', 'Pack'];
+      // === DUS ===
+      case 'dus':   return ['Pieces', 'Pack', 'Dus'];
+      case 'bungkus': return ['Gram', 'Pieces', 'Bungkus'];
+      case 'sachet': return ['Gram', 'Sachet'];
+      case 'pieces': return ['Pieces'];
+      default:      return [baseUnit];
+    }
+  };
+
+  // Konversi di frontend hanya untuk preview label
+  const getUnitLabel = (usedUnit, baseUnit) => {
+    if (usedUnit === baseUnit) return baseUnit;
+    return `${usedUnit} → ${baseUnit}`;
   };
 
   const handleSubmit = async (e) => {
@@ -110,10 +161,15 @@ const ProductionPage = () => {
         quantity: Number(quantity),
         materialsUsed: materialsUsed.map((m) => ({
           materialId: m.materialId,
-          quantity: Number(m.quantity)
+          quantity: Number(m.quantity),
+          usedUnit: m.usedUnit
         })),
         notes
       };
+
+      if (editProductionId) {
+        await productionService.delete(editProductionId);
+      }
 
       const res = await productionService.create(payload);
       if (res.success) {
@@ -123,6 +179,23 @@ const ProductionPage = () => {
       }
     } catch (err) {
       showToast(err.response?.data?.message || 'Gagal mencatat produksi', 'error');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!deleteId) return;
+    setIsSubmitting(true);
+    try {
+      const res = await productionService.delete(deleteId);
+      if (res.success) {
+        showToast('Data produksi berhasil dihapus, stok dikembalikan.');
+        setDeleteId(null);
+        fetchInitialData();
+      }
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Gagal menghapus data', 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -140,7 +213,7 @@ const ProductionPage = () => {
           </div>
           <div>
             <h2 style={{ fontSize: 18, fontWeight: 900, color: '#3d2c1e', margin: 0 }}>Pencatatan Produksi &amp; Penggunaan Bahan</h2>
-            <p style={{ fontSize: 12, color: '#475569', margin: 0, marginTop: 2, fontWeight: 500 }}>Catat hasil pembuatan kue pie. Sistem akan memotong stok bahan baku dan menambah stok produk secara otomatis.</p>
+            <p style={{ fontSize: 12, color: '#475569', margin: 0, marginTop: 2, fontWeight: 500 }}>Catat produksi pie & jus. Stok terupdate otomatis.</p>
           </div>
         </div>
 
@@ -198,12 +271,29 @@ const ProductionPage = () => {
                       </div>
                     </td>
                     <td className="p-4 text-center whitespace-nowrap">
-                      <button
-                        onClick={() => setDetailProduction(prod)}
-                        className="p-1.5 text-pink-600 hover:bg-pink-50 rounded-lg transition-colors inline-flex items-center gap-1 font-bold text-[11px] whitespace-nowrap"
-                      >
-                        Lihat <ChevronRight className="w-3.5 h-3.5" />
-                      </button>
+                      <div className="flex items-center justify-center gap-2">
+                        <button
+                          onClick={() => setDetailProduction(prod)}
+                          className="p-1.5 text-sky-600 hover:bg-sky-50 rounded-lg transition-colors inline-flex items-center justify-center font-bold"
+                          title="Detail Produksi"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleOpenEditModal(prod)}
+                          className="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition-colors inline-flex items-center justify-center font-bold"
+                          title="Edit Produksi"
+                        >
+                          <Edit3 className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => setDeleteId(prod._id)}
+                          className="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors inline-flex items-center justify-center"
+                          title="Hapus / Batalkan Produksi"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -217,7 +307,7 @@ const ProductionPage = () => {
       <Modal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        title="Form Input Produksi Pie"
+      title={editProductionId ? "Edit Produksi" : "Form Input Produksi"}
         maxWidth="max-w-2xl"
       >
         <form onSubmit={handleSubmit} className="space-y-5 text-xs">
@@ -268,8 +358,18 @@ const ProductionPage = () => {
               </button>
             </div>
 
+            {materialsUsed.length === 0 && (
+              <div className="flex flex-col items-center justify-center py-5 text-slate-400 gap-1.5">
+                <Wheat className="w-8 h-8 text-slate-300" />
+                <p className="text-xs font-semibold">Belum ada bahan ditambahkan</p>
+                <p className="text-[11px]">Klik "+ Tambah Bahan" untuk mulai memasukkan bahan baku</p>
+              </div>
+            )}
+
             {materialsUsed.map((row, idx) => {
               const selectedMat = materials.find((m) => m._id === row.materialId);
+              const compatibleUnits = getCompatibleUnits(selectedMat?.unit || '');
+              const canChooseUnit = compatibleUnits.length > 1;
               return (
                 <div key={idx} className="flex items-center gap-2 bg-white p-2.5 rounded-xl border border-slate-200">
                   <select
@@ -284,7 +384,7 @@ const ProductionPage = () => {
                     ))}
                   </select>
 
-                  <div className="flex items-center gap-1 w-32">
+                  <div className="flex items-center gap-1">
                     <input
                       type="number"
                       min="0.01"
@@ -292,9 +392,23 @@ const ProductionPage = () => {
                       required
                       value={row.quantity}
                       onChange={(e) => handleMaterialChange(idx, 'quantity', e.target.value)}
-                      className="w-full border border-slate-200 rounded-lg py-1 px-2 text-center text-xs font-bold"
+                      className="w-20 border border-slate-200 rounded-lg py-1 px-2 text-center text-xs font-bold focus:outline-none focus:border-amber-300"
                     />
-                    <span className="text-[11px] text-slate-500 font-semibold">{selectedMat?.unit || ''}</span>
+                    {canChooseUnit ? (
+                      <select
+                        value={row.usedUnit || selectedMat?.unit || ''}
+                        onChange={(e) => handleMaterialChange(idx, 'usedUnit', e.target.value)}
+                        className="border border-amber-200 bg-amber-50 text-amber-800 rounded-lg py-1 px-2 text-[11px] font-bold focus:outline-none focus:border-amber-400 cursor-pointer"
+                      >
+                        {compatibleUnits.map((u) => (
+                          <option key={u} value={u}>{u}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <span className="text-[11px] text-slate-500 font-semibold min-w-[32px]">
+                        {selectedMat?.unit || ''}
+                      </span>
+                    )}
                   </div>
 
                   {materialsUsed.length > 1 && (
@@ -385,6 +499,37 @@ const ProductionPage = () => {
             </div>
           </div>
         )}
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={!!deleteId}
+        onClose={() => !isSubmitting && setDeleteId(null)}
+        title="Konfirmasi Batal Produksi"
+        maxWidth="max-w-md"
+      >
+        <p className="text-xs text-slate-600 mb-4">
+          Apakah Anda yakin ingin membatalkan/menghapus riwayat produksi ini? <br />
+          <strong className="text-rose-600 font-black mt-2 inline-block">Stok bahan baku akan dikembalikan dan stok produk akan dikurangi.</strong>
+        </p>
+        <div className="flex justify-end gap-3 text-xs">
+          <button
+            type="button"
+            onClick={() => setDeleteId(null)}
+            className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl transition-colors"
+            disabled={isSubmitting}
+          >
+            Batal
+          </button>
+          <button
+            type="button"
+            onClick={handleDelete}
+            className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-black rounded-xl transition-colors flex items-center gap-2 disabled:opacity-50"
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? 'Memproses...' : 'Ya, Hapus'}
+          </button>
+        </div>
       </Modal>
     </div>
   );

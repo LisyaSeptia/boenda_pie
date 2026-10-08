@@ -1,11 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { productService } from '../services/productService';
 import LoadingSpinner from '../components/LoadingSpinner';
 import Modal from '../components/Modal';
 import Toast from '../components/Toast';
 import { formatRupiah } from '../utils/formatters';
 import { getCachedData, setCachedData } from '../utils/dataCache';
-import { Plus, Search, Edit3, Trash2, Package, Filter } from 'lucide-react';
+import { Plus, Search, Edit3, Trash2, Package, Filter, ImagePlus, BellRing, X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 const ProductsPage = () => {
@@ -36,9 +36,17 @@ const ProductsPage = () => {
     description: ''
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [dismissedOutOfStock, setDismissedOutOfStock] = useState(false);
+  const [dismissedLowStock, setDismissedLowStock] = useState(false);
+
+  const outOfStockProducts = products.filter((p) => p.stock === 0 && p.minStock > 0);
+  const lowStockProducts   = products.filter((p) => p.stock > 0 && p.stock <= p.minStock && p.minStock > 0);
 
   useEffect(() => {
     fetchProducts();
+    // Auto-refresh setiap 30 detik
+    const interval = setInterval(() => fetchProducts(), 30000);
+    return () => clearInterval(interval);
   }, [search, selectedCategory, selectedStatus]);
 
   const fetchProducts = async () => {
@@ -50,9 +58,18 @@ const ProductsPage = () => {
         status: selectedStatus
       });
       if (res.success) {
-        setProducts(res.data);
+        // Sort: Habis (0) -> Rendah (1) -> Aman (2)
+        const sorted = [...res.data].sort((a, b) => {
+          const getStatusScore = (item) => {
+            if (item.stock === 0) return 0; // Habis
+            if (item.stock <= item.minStock && item.minStock > 0) return 1; // Rendah
+            return 2; // Aman
+          };
+          return getStatusScore(a) - getStatusScore(b);
+        });
+        setProducts(sorted);
         if (!search && !selectedCategory && !selectedStatus) {
-          setCachedData('products', res.data);
+          setCachedData('products', sorted);
         }
       }
     } catch (err) {
@@ -67,19 +84,37 @@ const ProductsPage = () => {
     setTimeout(() => setToast({ message: '', type: 'success' }), 4000);
   };
 
+  // Helper: generate kode produk berdasarkan kategori
+  const generateCode = (category, currentProducts) => {
+    const prefix = category === 'Drink' ? 'JUS' : 'PIE';
+    const codes = (currentProducts || products)
+      .filter((p) => p.code && p.code.startsWith(`${prefix}-`))
+      .map((p) => parseInt(p.code.split('-')[1]) || 0);
+    const nextNum = codes.length > 0 ? Math.max(...codes) + 1 : 1;
+    return `${prefix}-${String(nextNum).padStart(3, '0')}`;
+  };
+
   const handleOpenAddModal = () => {
     setEditProduct(null);
+    const generatedCode = generateCode('Food');
     setFormData({
-      code: `PIE-${Math.floor(100 + Math.random() * 900)}`,
+      code: generatedCode,
       name: '',
       category: 'Food',
       price: '',
-      stock: '0',
-      minStock: '5',
+      stock: '',
+      minStock: '',
       unit: 'pcs',
-      description: ''
+      description: '',
+      image: ''
     });
     setIsModalOpen(true);
+  };
+
+  // Saat kategori diganti, kode otomatis di-regenerate
+  const handleCategoryChange = (newCategory) => {
+    const newCode = generateCode(newCategory);
+    setFormData(prev => ({ ...prev, category: newCategory, code: newCode }));
   };
 
   const handleOpenEditModal = (product) => {
@@ -92,10 +127,42 @@ const ProductsPage = () => {
       stock: product.stock,
       minStock: product.minStock,
       unit: product.unit,
-      description: product.description || ''
+      description: product.description || '',
+      image: product.image || ''
     });
     setIsModalOpen(true);
   };
+
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (file.size > 10 * 1024 * 1024) {
+      showToast('Ukuran gambar maksimal 10MB', 'error');
+      return;
+    }
+
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const MAX = 600;
+      let { width, height } = img;
+      if (width > height) {
+        if (width > MAX) { height = Math.round(height * MAX / width); width = MAX; }
+      } else {
+        if (height > MAX) { width = Math.round(width * MAX / height); height = MAX; }
+      }
+      canvas.width = width;
+      canvas.height = height;
+      canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+      const compressed = canvas.toDataURL('image/jpeg', 0.75);
+      setFormData(prev => ({ ...prev, image: compressed }));
+      URL.revokeObjectURL(url);
+    };
+    img.src = url;
+  };
+
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -140,6 +207,54 @@ const ProductsPage = () => {
     <div className="space-y-6">
       <Toast message={toast.message} type={toast.type} onClose={() => setToast({ message: '', type: 'success' })} />
 
+      {/* BANNER: Stok Habis */}
+      {!loading && outOfStockProducts.length > 0 && !dismissedOutOfStock && (
+        <div style={{ background: 'linear-gradient(135deg, #fff1f2 0%, #ffe4e6 100%)', border: '2px solid #fca5a5', borderRadius: 20, padding: '14px 20px', boxShadow: '0 4px 18px rgba(239,68,68,0.15)', display: 'flex', alignItems: 'flex-start', gap: 14 }}>
+          <div style={{ width: 40, height: 40, borderRadius: 12, background: '#fee2e2', border: '1.5px solid #fca5a5', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <BellRing style={{ width: 20, height: 20, color: '#b91c1c' }} />
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <p style={{ fontSize: 13, fontWeight: 900, color: '#b91c1c', margin: '0 0 6px' }}>
+              🚨 Stok Habis! {outOfStockProducts.length} produk sudah kehabisan stok.
+            </p>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              {outOfStockProducts.map((item) => (
+                <span key={item._id} style={{ background: '#fee2e2', color: '#b91c1c', border: '1px solid #fca5a5', borderRadius: 20, padding: '3px 10px', fontSize: 11, fontWeight: 700, whiteSpace: 'nowrap' }}>
+                  {item.name}: <span style={{ fontWeight: 900 }}>HABIS</span>
+                </span>
+              ))}
+            </div>
+          </div>
+          <button onClick={() => setDismissedOutOfStock(true)} className="btn-dismiss" style={{ color: '#b91c1c' }} title="Tutup peringatan">
+            <X style={{ width: 16, height: 16 }} />
+          </button>
+        </div>
+      )}
+
+      {/* BANNER: Stok Rendah */}
+      {!loading && lowStockProducts.length > 0 && !dismissedLowStock && (
+        <div style={{ background: 'linear-gradient(135deg, #fff8e1 0%, #fff3cd 100%)', border: '2px solid #f5c842', borderRadius: 20, padding: '14px 20px', boxShadow: '0 4px 18px rgba(245,200,0,0.18)', display: 'flex', alignItems: 'flex-start', gap: 14 }}>
+          <div style={{ width: 40, height: 40, borderRadius: 12, background: '#fef08a', border: '1.5px solid #f5c842', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <BellRing style={{ width: 20, height: 20, color: '#92400e' }} />
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <p style={{ fontSize: 13, fontWeight: 900, color: '#92400e', margin: '0 0 6px' }}>
+              ⚠️ Stok Rendah! {lowStockProducts.length} produk hampir habis.
+            </p>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              {lowStockProducts.map((item) => (
+                <span key={item._id} style={{ background: '#fef3c7', color: '#92400e', border: '1px solid #fcd34d', borderRadius: 20, padding: '3px 10px', fontSize: 11, fontWeight: 700, whiteSpace: 'nowrap' }}>
+                  {item.name}: <span style={{ color: '#b91c1c', fontWeight: 900 }}>{item.stock} pcs</span> (min. {item.minStock})
+                </span>
+              ))}
+            </div>
+          </div>
+          <button onClick={() => setDismissedLowStock(true)} className="btn-dismiss" style={{ color: '#92400e' }} title="Tutup peringatan">
+            <X style={{ width: 16, height: 16 }} />
+          </button>
+        </div>
+      )}
+
       {/* Top Header Controls */}
       <div style={{ background: 'white', borderRadius: 24, padding: '20px 24px', border: '1.5px solid #e2e8f0', boxShadow: '0 4px 20px rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
@@ -148,7 +263,7 @@ const ProductsPage = () => {
           </div>
           <div>
             <h2 style={{ fontSize: 18, fontWeight: 900, color: '#3d2c1e', margin: 0 }}>Katalog Data Produk</h2>
-            <p style={{ fontSize: 12, color: '#475569', margin: 0, marginTop: 2, fontWeight: 500 }}>Kelola varian pie, harga jual, dan batas minimal stok.</p>
+            <p style={{ fontSize: 12, color: '#475569', margin: 0, marginTop: 2, fontWeight: 500 }}>Kelola varian pie & jus, harga jual, serta batas stok.</p>
           </div>
         </div>
 
@@ -297,7 +412,7 @@ const ProductsPage = () => {
         title={editProduct ? 'Edit Data Produk' : 'Tambah Produk Baru'}
       >
         <form onSubmit={handleSubmit} className="space-y-4 text-xs">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block font-semibold text-slate-700 mb-1">Kode Produk</label>
               <input
@@ -305,15 +420,15 @@ const ProductsPage = () => {
                 disabled={!!editProduct}
                 value={formData.code}
                 onChange={(e) => setFormData({ ...formData, code: e.target.value })}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2 px-3 focus:outline-none focus:border-[#f5d96b] uppercase font-bold"
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl py-1.5 px-3 focus:outline-none focus:border-[#f5d96b] uppercase font-bold"
               />
             </div>
             <div>
               <label className="block font-semibold text-slate-700 mb-1">Kategori</label>
               <select
                 value={formData.category}
-                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                className="w-full bg-white border border-slate-200 rounded-xl py-2 px-3 focus:outline-none focus:border-[#f5d96b]"
+                onChange={(e) => handleCategoryChange(e.target.value)}
+                className="w-full bg-white border border-slate-200 rounded-xl py-1.5 px-3 focus:outline-none focus:border-[#f5d96b]"
               >
                 {categories.map((c) => (
                   <option key={c} value={c}>{c}</option>
@@ -322,54 +437,81 @@ const ProductsPage = () => {
             </div>
           </div>
 
-          <div>
-            <label className="block font-semibold text-slate-700 mb-1">Nama Produk</label>
-            <input
-              type="text"
-              required
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              placeholder="Contoh: Pie Susu Original"
-              className="w-full bg-white border border-slate-200 rounded-xl py-2 px-3 focus:outline-none focus:border-[#f5d96b]"
-            />
+          <div className="flex gap-4 items-start">
+            <div className="flex flex-col items-center gap-1">
+            <div className="w-24 h-24 rounded-2xl border-2 border-dashed border-[#f8cee8] hover:border-[#f0a3d0] bg-slate-50 flex-shrink-0 relative group cursor-pointer overflow-hidden flex justify-center items-center transition-colors">
+              {formData.image ? (
+                <img src={formData.image} alt="Preview" className="w-full h-full object-cover" />
+              ) : (
+                <div className="flex flex-col items-center justify-center text-slate-400 gap-1">
+                  <ImagePlus className="w-6 h-6 text-[#f8cee8] group-hover:text-[#f0a3d0] transition-colors" />
+                  <span className="text-[9px] font-bold">Foto</span>
+                </div>
+              )}
+              <input 
+                type="file" 
+                accept="image/*" 
+                onChange={handleImageChange} 
+                className="absolute inset-0 opacity-0 cursor-pointer" 
+              />
+              {formData.image && (
+                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
+                  <span className="text-white text-[10px] font-bold">Ubah</span>
+                </div>
+              )}
+            </div>
+            <span className="text-[9px] text-slate-400 text-center leading-tight">Maks. 10MB</span>
           </div>
 
-          <div className="grid grid-cols-3 gap-4">
-            <div>
-              <label className="block font-semibold text-slate-700 mb-1">Harga Jual (Rp)</label>
-              <input
-                type="number"
-                min="0"
-                required
-                value={formData.price}
-                onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                placeholder="2500"
-                className="w-full bg-white border border-slate-200 rounded-xl py-2 px-3 focus:outline-none focus:border-[#f5d96b]"
-              />
-            </div>
+          <div className="flex-1 space-y-3">
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Nama Produk</label>
+                <input
+                  type="text"
+                  required
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  placeholder={formData.category === 'Drink' ? 'Contoh : Jus Alpukat' : 'Contoh : Pie Nanas'}
+                  className="w-full bg-white border border-slate-200 rounded-xl py-1.5 px-3 focus:outline-none focus:border-[#f5d96b]"
+                />
+              </div>
 
-            <div>
-              <label className="block font-semibold text-slate-700 mb-1">Stok Produk</label>
-              <input
-                type="number"
-                min="0"
-                required
-                value={formData.stock}
-                onChange={(e) => setFormData({ ...formData, stock: e.target.value })}
-                className="w-full bg-white border border-slate-200 rounded-xl py-2 px-3 focus:outline-none focus:border-[#f5d96b]"
-              />
-            </div>
-
-            <div>
-              <label className="block font-semibold text-slate-700 mb-1">Stok Minimum</label>
-              <input
-                type="number"
-                min="0"
-                required
-                value={formData.minStock}
-                onChange={(e) => setFormData({ ...formData, minStock: e.target.value })}
-                className="w-full bg-white border border-slate-200 rounded-xl py-2 px-3 focus:outline-none focus:border-[#f5d96b]"
-              />
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">Harga (Rp)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    required
+                    value={formData.price}
+                    onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                    placeholder="2000"
+                    className="w-full bg-white border border-slate-200 rounded-xl py-1.5 px-3 focus:outline-none focus:border-[#f5d96b]"
+                  />
+                </div>
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">Stok</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={formData.stock}
+                    onChange={(e) => setFormData({ ...formData, stock: e.target.value })}
+                    placeholder="20"
+                    className="w-full bg-white border border-slate-200 rounded-xl py-1.5 px-3 focus:outline-none focus:border-[#f5d96b]"
+                  />
+                </div>
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">Min. Stok</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={formData.minStock}
+                    onChange={(e) => setFormData({ ...formData, minStock: e.target.value })}
+                    placeholder="5"
+                    className="w-full bg-white border border-slate-200 rounded-xl py-1.5 px-3 focus:outline-none focus:border-[#f5d96b]"
+                  />
+                </div>
+              </div>
             </div>
           </div>
 
@@ -379,8 +521,8 @@ const ProductsPage = () => {
               rows="2"
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              placeholder="Keterangan varian pie..."
-              className="w-full bg-white border border-slate-200 rounded-xl py-2 px-3 focus:outline-none focus:border-[#f5d96b]"
+              placeholder="Keterangan varian produk..."
+              className="w-full bg-white border border-slate-200 rounded-xl py-1.5 px-3 focus:outline-none focus:border-[#f5d96b] resize-none"
             />
           </div>
 

@@ -1,9 +1,15 @@
+const dns = require('dns');
+try {
+  dns.setServers(['8.8.8.8', '8.8.4.4', '1.1.1.1']);
+} catch (e) {}
+
 const dotenv = require('dotenv');
 dotenv.config();
 
 const express = require('express');
 const cors = require('cors');
-const connectDB = require('./config/db');
+const mongoose = require('mongoose');
+const { connectDB, getDbError } = require('./config/db');
 const errorHandler = require('./middleware/errorHandler');
 
 // Import Routes
@@ -22,8 +28,8 @@ const app = express();
 
 // Middleware
 app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Root Health Check Route
 app.get('/', (req, res) => {
@@ -31,8 +37,29 @@ app.get('/', (req, res) => {
     success: true,
     message: 'Boenda Pie Purwokerto REST API Server is Running',
     version: '1.0.0',
+    dbStatus: mongoose.connection.readyState === 1 ? 'CONNECTED' : 'DISCONNECTED',
     timestamp: new Date()
   });
+});
+
+// Middleware: Check Database Connectivity for all /api calls
+app.use('/api', (req, res, next) => {
+  if (mongoose.connection.readyState !== 1) {
+    const errorDetail = getDbError ? getDbError() : null;
+    let stateDesc = 'Belum terhubung';
+    if (mongoose.connection.readyState === 2) {
+      stateDesc = 'Sedang proses menghubungkan (Connecting)... Coba klik Masuk lagi dalam 5 detik.';
+    } else if (errorDetail) {
+      stateDesc = `Gagal: ${errorDetail}`;
+    }
+
+    return res.status(503).json({
+      success: false,
+      message: stateDesc,
+      error: errorDetail
+    });
+  }
+  next();
 });
 
 // Register API Routes
@@ -51,14 +78,23 @@ app.use(errorHandler);
 const PORT = process.env.PORT || 5000;
 
 const startServer = async () => {
-  await connectDB();
-  await autoSeedIfEmpty();
+  // 1. Listen port 5000 immediately so frontend can connect
   app.listen(PORT, () => {
     console.log(`==================================================`);
-    console.log(`  Boenda Pie Server running in ${process.env.NODE_ENV || 'development'} mode`);
-    console.log(`  URL: http://localhost:${PORT}`);
+    console.log(`  Boenda Pie Server running on http://localhost:${PORT}`);
+    console.log(`  Environment: ${process.env.NODE_ENV || 'development'}`);
     console.log(`==================================================`);
   });
+
+  // 2. Connect to database
+  try {
+    await connectDB();
+    if (mongoose.connection.readyState === 1) {
+      await autoSeedIfEmpty();
+    }
+  } catch (err) {
+    console.error('[Database Init Error]:', err.message);
+  }
 };
 
 startServer();

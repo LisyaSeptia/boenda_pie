@@ -35,8 +35,8 @@ const updateUser = async (req, res, next) => {
     const user = await User.findById(req.params.id);
     if (!user) return errorResponse(res, 404, 'Pengguna tidak ditemukan');
     
-    user.name = req.body.name || user.name;
-    // Email & Username tetap paten (tidak bisa diubah karena sudah terdaftar)
+    // Username & Email bersifat permanen (tidak dapat diubah)
+    user.name = req.body.name ? req.body.name.trim() : user.name;
     user.role = req.body.role || user.role;
     if (req.body.isActive !== undefined) {
       user.isActive = req.body.isActive;
