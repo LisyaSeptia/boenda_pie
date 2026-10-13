@@ -3,11 +3,14 @@ const router = express.Router();
 const {
   createTransaction,
   getTransactions,
-  getTransactionById
+  getTransactionById,
+  sendWhatsAppReceipt
 } = require('../controllers/transactionController');
 const { protect } = require('../middleware/authMiddleware');
 
 router.use(protect);
+
+router.post('/send-wa', sendWhatsAppReceipt);
 
 router.route('/')
   .post(createTransaction)

@@ -1,11 +1,13 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { productService } from '../services/productService';
 import { transactionService } from '../services/transactionService';
+import { customerService } from '../services/customerService';
 import { useCart } from '../context/CartContext';
 import LoadingSpinner from '../components/LoadingSpinner';
 import Toast from '../components/Toast';
 import ReceiptModal from '../components/ReceiptModal';
 import { formatRupiah } from '../utils/formatters';
+import { getReceiptBase64 } from '../utils/receiptGenerator';
 import { useAuth } from '../context/AuthContext';
 import { getCachedData, setCachedData } from '../utils/dataCache';
 import {
@@ -23,7 +25,11 @@ import {
   Sparkles,
   Loader2,
   User,
-  Package
+  Package,
+  Phone,
+  UserCheck,
+  UserPlus,
+  X
 } from 'lucide-react';
 
 // Menu yang otomatis ditambahkan ke database kalau belum ada (hanya sekali)
@@ -77,9 +83,60 @@ const POSKasirPage = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [customerNote, setCustomerNote] = useState('');
 
+  // Customer State
+  const [customerName, setCustomerName] = useState('');
+  const [customerPhone, setCustomerPhone] = useState('');
+  const [selectedCustomer, setSelectedCustomer] = useState(null);
+  const [customerSuggestions, setCustomerSuggestions] = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [isSearchingCustomer, setIsSearchingCustomer] = useState(false);
+
   useEffect(() => {
     fetchProducts();
   }, [search, selectedCategory]);
+
+  // Search existing customers when typing name or phone
+  useEffect(() => {
+    if (selectedCustomer) return;
+    const query = customerPhone.trim() || customerName.trim();
+    if (query.length < 2) {
+      setCustomerSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      try {
+        setIsSearchingCustomer(true);
+        const res = await customerService.getAll({ search: query });
+        if (res.success && res.data) {
+          setCustomerSuggestions(res.data);
+          setShowSuggestions(res.data.length > 0);
+        }
+      } catch (err) {
+        console.warn('Gagal mencari pelanggan:', err);
+      } finally {
+        setIsSearchingCustomer(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [customerName, customerPhone, selectedCustomer]);
+
+  const handleSelectCustomer = (cust) => {
+    setSelectedCustomer(cust);
+    setCustomerName(cust.name);
+    setCustomerPhone(cust.phone || '');
+    setShowSuggestions(false);
+  };
+
+  const handleResetCustomer = () => {
+    setSelectedCustomer(null);
+    setCustomerName('');
+    setCustomerPhone('');
+    setCustomerSuggestions([]);
+    setShowSuggestions(false);
+  };
 
   // Tambahkan Jus Alpukat (Rp 5.000) ke database kalau belum ada
   const ensureAlpukat = async (list) => {
@@ -180,15 +237,28 @@ const POSKasirPage = () => {
         cashierName: activeCashierName.trim() || user?.name || 'Kasir',
         packaging: selectedPackaging,
         packagingFee,
-        notes: customerNote.trim()
+        notes: customerNote.trim(),
+        customerName: customerName.trim() || 'Umum',
+        customerPhone: customerPhone.trim(),
+        customerId: selectedCustomer?._id || null
       };
 
       const res = await transactionService.create(payload);
       if (res.success) {
-        setCompletedTransaction({ ...res.data, packaging: selectedPackaging, packagingFee, notes: customerNote.trim() });
+        const fullTransactionData = {
+          ...res.data,
+          packaging: selectedPackaging,
+          packagingFee,
+          notes: customerNote.trim(),
+          customerName: customerName.trim() || 'Umum',
+          customerPhone: customerPhone.trim()
+        };
+
+        setCompletedTransaction(fullTransactionData);
         setIsReceiptOpen(true);
         clearCart();
         setCustomerNote('');
+        handleResetCustomer();
         fetchProducts(); // Refresh stock in catalog
         showToast('Transaksi kasir berhasil diproses!');
       }
@@ -224,20 +294,20 @@ const POSKasirPage = () => {
         key={prod._id}
         onClick={() => !isOutOfStock && addToCart(prod)}
         className={`bg-white rounded-2xl border-2 p-3.5 flex flex-col justify-between transition-all duration-200 group hover:-translate-y-0.5 ${isOutOfStock
-            ? 'border-slate-200 opacity-60 cursor-not-allowed bg-slate-50/50'
-            : isDrink
-              ? 'border-[#beeaff] hover:border-[#7dcef5] hover:shadow-md cursor-pointer'
-              : 'border-[#f8cee8] hover:border-[#f0a3d0] hover:shadow-md cursor-pointer'
+          ? 'border-slate-200 opacity-60 cursor-not-allowed bg-slate-50/50'
+          : isDrink
+            ? 'border-[#beeaff] hover:border-[#7dcef5] hover:shadow-md cursor-pointer'
+            : 'border-[#f8cee8] hover:border-[#f0a3d0] hover:shadow-md cursor-pointer'
           }`}
       >
         <div>
           <div className="flex justify-end mb-2">
             <span
               className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${isOutOfStock
-                  ? 'bg-rose-100 text-rose-800'
-                  : prod.stock <= prod.minStock
-                    ? 'bg-[#fcf0c0] text-[#8a6000]'
-                    : 'bg-emerald-100 text-emerald-800'
+                ? 'bg-rose-100 text-rose-800'
+                : prod.stock <= prod.minStock
+                  ? 'bg-[#fcf0c0] text-[#8a6000]'
+                  : 'bg-emerald-100 text-emerald-800'
                 }`}
             >
               Stok: {prod.stock}
@@ -252,7 +322,7 @@ const POSKasirPage = () => {
               src={(() => {
                 if (prod.image) return prod.image;
                 const cleanName = (prod.name || '').toLowerCase().trim();
-                
+
                 // Cek nama spesifik
                 if (cleanName.includes('red velvet')) return '/img/pie_red_velvet.jpeg';
                 if (cleanName.includes('jambu')) return '/img/jus_jambu_biji.jpeg';
@@ -292,19 +362,18 @@ const POSKasirPage = () => {
           </h4>
         </div>
 
-        <div className={`mt-3 pt-2.5 border-t flex items-center justify-between ${
-          isDrink ? 'border-[#7dcef5]' : 'border-[#f0a3d0]'
-        }`}>
+        <div className={`mt-3 pt-2.5 border-t flex items-center justify-between ${isDrink ? 'border-[#7dcef5]' : 'border-[#f0a3d0]'
+          }`}>
           <span className="font-black text-slate-900 text-sm">
             {formatRupiah(prod.price)}
           </span>
           <button
             disabled={isOutOfStock}
             className={`w-6 h-6 rounded-lg flex items-center justify-center border font-bold transition-all ${isOutOfStock
-                ? 'bg-slate-100 text-slate-400 border-slate-200'
-                : isDrink
-                  ? 'bg-[#beeaff] text-[#1a6fa0] border-[#7dcef5] hover:bg-[#a6e0fc] group-hover:scale-105 active:scale-95'
-                  : 'bg-[#f8cee8] text-[#a0336e] border-[#f0a3d0] hover:bg-[#f3b5db] group-hover:scale-105 active:scale-95'
+              ? 'bg-slate-100 text-slate-400 border-slate-200'
+              : isDrink
+                ? 'bg-[#beeaff] text-[#1a6fa0] border-[#7dcef5] hover:bg-[#a6e0fc] group-hover:scale-105 active:scale-95'
+                : 'bg-[#f8cee8] text-[#a0336e] border-[#f0a3d0] hover:bg-[#f3b5db] group-hover:scale-105 active:scale-95'
               }`}
           >
             <Plus className="w-3.5 h-3.5 stroke-[3]" />
@@ -337,8 +406,8 @@ const POSKasirPage = () => {
               <button
                 onClick={() => setSelectedCategory('')}
                 className={`px-4 py-2 rounded-2xl text-xs font-extrabold transition-all shrink-0 border ${selectedCategory === ''
-                    ? 'bg-[#fcf0c0] text-[#8a6000] border-[#f5d96b] shadow-xs'
-                    : 'bg-white text-slate-500 border-slate-200 hover:bg-[#fffdf0]'
+                  ? 'bg-[#fcf0c0] text-[#8a6000] border-[#f5d96b] shadow-xs'
+                  : 'bg-white text-slate-500 border-slate-200 hover:bg-[#fffdf0]'
                   }`}
               >
                 Semua Menu ✨
@@ -346,8 +415,8 @@ const POSKasirPage = () => {
               <button
                 onClick={() => setSelectedCategory('Food')}
                 className={`px-4 py-2 rounded-2xl text-xs font-extrabold transition-all shrink-0 border flex items-center gap-1.5 ${selectedCategory === 'Food'
-                    ? 'bg-[#f8cee8] text-[#a0336e] border-[#f0a3d0] shadow-xs'
-                    : 'bg-white text-slate-500 border-slate-200 hover:bg-[#fff4f9]'
+                  ? 'bg-[#f8cee8] text-[#a0336e] border-[#f0a3d0] shadow-xs'
+                  : 'bg-white text-slate-500 border-slate-200 hover:bg-[#fff4f9]'
                   }`}
               >
                 <UtensilsCrossed className="w-3.5 h-3.5" />
@@ -356,8 +425,8 @@ const POSKasirPage = () => {
               <button
                 onClick={() => setSelectedCategory('Drink')}
                 className={`px-4 py-2 rounded-2xl text-xs font-extrabold transition-all shrink-0 border flex items-center gap-1.5 ${selectedCategory === 'Drink'
-                    ? 'bg-[#beeaff] text-[#1a6fa0] border-[#7dcef5] shadow-xs'
-                    : 'bg-white text-slate-500 border-slate-200 hover:bg-[#f0f9ff]'
+                  ? 'bg-[#beeaff] text-[#1a6fa0] border-[#7dcef5] shadow-xs'
+                  : 'bg-white text-slate-500 border-slate-200 hover:bg-[#f0f9ff]'
                   }`}
               >
                 <CupSoda className="w-3.5 h-3.5" />
@@ -474,7 +543,111 @@ const POSKasirPage = () => {
             )}
           </div>
 
+          {/* Form Data Pelanggan / Customer */}
+          <div className="mb-3.5 p-3 rounded-2xl bg-gradient-to-br from-[#fff7fc] to-[#fbf2fa] border border-[#f8cee8] relative shadow-2xs">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-1.5">
+                {selectedCustomer ? (
+                  <span className="flex items-center gap-1 text-[11px] font-extrabold text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-full border border-emerald-300">
+                    <UserCheck className="w-3 h-3" /> Pelanggan Terdaftar
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-1 text-[11px] font-extrabold text-[#a0336e] bg-[#f8cee8]/60 px-2 py-0.5 rounded-full border border-[#f0a3d0]">
+                    <UserPlus className="w-3 h-3" /> Data Pembeli
+                  </span>
+                )}
+              </div>
+              {(customerName || customerPhone || selectedCustomer) && (
+                <button
+                  type="button"
+                  onClick={handleResetCustomer}
+                  className="text-[10px] font-bold text-slate-400 hover:text-rose-600 flex items-center gap-0.5 transition-colors"
+                >
+                  <X className="w-3 h-3" /> Reset
+                </button>
+              )}
+            </div>
 
+            <div className="space-y-2">
+              {/* Nama Input + Autocomplete Suggestion */}
+              <div className="relative">
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={customerName}
+                    onChange={(e) => {
+                      setCustomerName(e.target.value);
+                      if (selectedCustomer) setSelectedCustomer(null);
+                    }}
+                    onFocus={() => {
+                      if (customerSuggestions.length > 0) setShowSuggestions(true);
+                    }}
+                    placeholder="Nama Pembeli (Ketik utk cari/baru)..."
+                    className="w-full bg-white border border-[#f8cee8] rounded-xl py-1.5 pl-8 pr-3 text-xs font-bold text-slate-800 placeholder:text-slate-400 placeholder:font-normal focus:outline-none focus:border-[#a0336e] transition-all"
+                  />
+                  <User className="w-3.5 h-3.5 text-[#a0336e] absolute left-2.5 top-1/2 -translate-y-1/2" />
+                  {isSearchingCustomer && (
+                    <Loader2 className="w-3 h-3 text-[#a0336e] animate-spin absolute right-2.5 top-1/2 -translate-y-1/2" />
+                  )}
+                </div>
+
+                {/* Suggestions Dropdown */}
+                {showSuggestions && customerSuggestions.length > 0 && (
+                  <div className="absolute z-20 left-0 right-0 mt-1 bg-white border-2 border-[#f8cee8] rounded-xl shadow-lg max-h-48 overflow-y-auto divide-y divide-slate-100">
+                    <div className="px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-slate-400 bg-slate-50">
+                      Pernah Beli / Pelanggan Terdaftar
+                    </div>
+                    {customerSuggestions.map((cust) => (
+                      <div
+                        key={cust._id}
+                        onClick={() => handleSelectCustomer(cust)}
+                        className="p-2 hover:bg-[#fff0f7] cursor-pointer flex items-center justify-between text-xs transition-colors"
+                      >
+                        <div>
+                          <p className="font-extrabold text-slate-800 flex items-center gap-1">
+                            {cust.name}
+                            <span className="text-[10px] font-normal text-slate-400">
+                              ({cust.totalOrders || 0}x beli)
+                            </span>
+                          </p>
+                          <p className="text-[10px] text-slate-500 font-medium">
+                            {cust.phone ? `📞 ${cust.phone}` : 'Tanpa No HP'}
+                          </p>
+                        </div>
+                        <span className="text-[10px] font-bold text-[#a0336e] bg-[#f8cee8] px-2 py-0.5 rounded-lg">
+                          Pilih
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* No WhatsApp / HP Input */}
+              <div className="relative">
+                <input
+                  type="text"
+                  inputMode="tel"
+                  value={customerPhone}
+                  onChange={(e) => {
+                    const raw = e.target.value.replace(/[^0-9+]/g, '');
+                    setCustomerPhone(raw);
+                    if (selectedCustomer) setSelectedCustomer(null);
+                  }}
+                  placeholder="No. WhatsApp / HP (Contoh: 0812...)..."
+                  className="w-full bg-white border border-[#f8cee8] rounded-xl py-1.5 pl-8 pr-3 text-xs font-bold text-slate-800 placeholder:text-slate-400 placeholder:font-normal focus:outline-none focus:border-[#a0336e] transition-all"
+                />
+                <Phone className="w-3.5 h-3.5 text-emerald-600 absolute left-2.5 top-1/2 -translate-y-1/2" />
+              </div>
+            </div>
+
+            {selectedCustomer && (
+              <p className="mt-1.5 text-[10px] text-emerald-700 font-semibold flex items-center gap-1">
+                <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                Data otomatis terisi: Riwayat {selectedCustomer.totalOrders || 0}x pesanan.
+              </p>
+            )}
+          </div>
 
           {/* Cart Items List */}
           <div className="max-h-60 overflow-y-auto space-y-2 pr-1 mb-4 custom-scrollbar">
@@ -538,8 +711,8 @@ const POSKasirPage = () => {
                     type="button"
                     onClick={() => setSelectedPackaging('KERTAS')}
                     className={`flex-1 py-2 px-2 rounded-xl font-bold flex flex-col items-center gap-1 border-2 transition-all text-[11px] ${selectedPackaging === 'KERTAS'
-                        ? 'bg-[#beeaff] text-[#1a6fa0] border-[#7dcef5] shadow-xs'
-                        : 'bg-white text-slate-600 border-slate-200 hover:bg-[#f0f9ff]'
+                      ? 'bg-[#beeaff] text-[#1a6fa0] border-[#7dcef5] shadow-xs'
+                      : 'bg-white text-slate-600 border-slate-200 hover:bg-[#f0f9ff]'
                       }`}
                   >
                     <Package className="w-4 h-4" />
@@ -549,8 +722,8 @@ const POSKasirPage = () => {
                     type="button"
                     onClick={() => setSelectedPackaging('KARDUS')}
                     className={`flex-1 py-2 px-2 rounded-xl font-bold flex flex-col items-center gap-1 border-2 transition-all text-[11px] ${selectedPackaging === 'KARDUS'
-                        ? 'bg-[#f8cee8] text-[#a0336e] border-[#f0a3d0] shadow-xs'
-                        : 'bg-white text-slate-600 border-slate-200 hover:bg-[#fff4f9]'
+                      ? 'bg-[#f8cee8] text-[#a0336e] border-[#f0a3d0] shadow-xs'
+                      : 'bg-white text-slate-600 border-slate-200 hover:bg-[#fff4f9]'
                       }`}
                   >
                     <Package className="w-4 h-4" />
@@ -568,8 +741,8 @@ const POSKasirPage = () => {
                   type="button"
                   onClick={() => setPaymentMethod('CASH')}
                   className={`py-2.5 px-2 rounded-2xl font-extrabold flex flex-col items-center gap-1 border-2 transition-all text-[11px] ${paymentMethod === 'CASH'
-                      ? 'bg-[#f8cee8] text-[#a0336e] border-[#f0a3d0] shadow-xs'
-                      : 'bg-white text-slate-600 border-slate-200 hover:bg-[#fff4f9]'
+                    ? 'bg-[#f8cee8] text-[#a0336e] border-[#f0a3d0] shadow-xs'
+                    : 'bg-white text-slate-600 border-slate-200 hover:bg-[#fff4f9]'
                     }`}
                 >
                   <DollarSign className="w-4 h-4 stroke-[2.5]" />
@@ -579,8 +752,8 @@ const POSKasirPage = () => {
                   type="button"
                   onClick={() => setPaymentMethod('QRIS')}
                   className={`py-2.5 px-2 rounded-2xl font-extrabold flex flex-col items-center gap-1 border-2 transition-all text-[11px] ${paymentMethod === 'QRIS'
-                      ? 'bg-[#beeaff] text-[#1a6fa0] border-[#7dcef5] shadow-xs'
-                      : 'bg-white text-slate-600 border-slate-200 hover:bg-[#f0f9ff]'
+                    ? 'bg-[#beeaff] text-[#1a6fa0] border-[#7dcef5] shadow-xs'
+                    : 'bg-white text-slate-600 border-slate-200 hover:bg-[#f0f9ff]'
                     }`}
                 >
                   <QrCode className="w-4 h-4 stroke-[2.5]" />
@@ -590,8 +763,8 @@ const POSKasirPage = () => {
                   type="button"
                   onClick={() => setPaymentMethod('TRANSFER')}
                   className={`py-2.5 px-2 rounded-2xl font-extrabold flex flex-col items-center gap-1 border-2 transition-all text-[11px] ${paymentMethod === 'TRANSFER'
-                      ? 'bg-[#fcf0c0] text-[#8a6000] border-[#f5d96b] shadow-xs'
-                      : 'bg-white text-slate-600 border-slate-200 hover:bg-[#fffdf0]'
+                    ? 'bg-[#fcf0c0] text-[#8a6000] border-[#f5d96b] shadow-xs'
+                    : 'bg-white text-slate-600 border-slate-200 hover:bg-[#fffdf0]'
                     }`}
                 >
                   <CreditCard className="w-4 h-4 stroke-[2.5]" />

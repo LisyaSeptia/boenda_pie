@@ -84,6 +84,19 @@ const transactionSchema = new mongoose.Schema(
     notes: {
       type: String,
       default: ''
+    },
+    customerId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Customer',
+      default: null
+    },
+    customerName: {
+      type: String,
+      default: 'Umum'
+    },
+    customerPhone: {
+      type: String,
+      default: ''
     }
   },
   {

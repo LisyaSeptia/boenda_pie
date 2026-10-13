@@ -12,5 +12,9 @@ export const transactionService = {
   getById: async (id) => {
     const response = await api.get(`/transactions/${id}`);
     return response.data;
+  },
+  sendWhatsApp: async (data) => {
+    const response = await api.post('/transactions/send-wa', data);
+    return response.data;
   }
 };

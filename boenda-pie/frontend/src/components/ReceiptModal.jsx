@@ -1,19 +1,20 @@
 import React from 'react';
 import Modal from './Modal';
-import { Printer, ShoppingBag, ImageDown } from 'lucide-react';
+import { Printer, ShoppingBag, ImageDown, MessageCircle } from 'lucide-react';
 import { formatRupiah, formatDate } from '../utils/formatters';
+import { transactionService } from '../services/transactionService';
 
 const ReceiptModal = ({ isOpen, onClose, transaction }) => {
   if (!transaction) return null;
 
-  const handleDownloadImage = () => {
+  const generateReceiptCanvas = () => {
     const W = 420;
     const pad = 24;
     const lineH = 22;
     const items = transaction.items || [];
 
     // Estimate total height dynamically
-    const metaLines = 4;
+    const metaLines = 5;
     const itemLines = items.length * 2;
     const totalLines = 4;
     const H = pad * 2 + 90 + (metaLines * lineH) + 16 + (itemLines * lineH) + 16 + (totalLines * lineH) + 60;
@@ -40,8 +41,8 @@ const ReceiptModal = ({ isOpen, onClose, transaction }) => {
 
     // Helper functions
     const dashedLine = (yy) => {
-      ctx.setLineDash([5, 4]);
-      ctx.strokeStyle = '#f0a3d0';
+      ctx.setLineDash([4, 4]);
+      ctx.strokeStyle = '#e8a5cb';
       ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.moveTo(pad, yy);
@@ -49,10 +50,10 @@ const ReceiptModal = ({ isOpen, onClose, transaction }) => {
       ctx.stroke();
       ctx.setLineDash([]);
     };
-    const solidLine = (yy, color = '#f0a3d0') => {
+    const solidLine = (yy, color = '#e8a5cb') => {
       ctx.setLineDash([]);
       ctx.strokeStyle = color;
-      ctx.lineWidth = 1.5;
+      ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.moveTo(pad, yy);
       ctx.lineTo(W - pad, yy);
@@ -69,23 +70,36 @@ const ReceiptModal = ({ isOpen, onClose, transaction }) => {
       text(right, W - pad, yy, { ...opts, align: 'right' });
     };
 
-    // ---- Header ----
-    ctx.font = 'bold 16px Arial';
+    // ---- Header Mascot & Title ----
+    const imgEl = new Image();
+    imgEl.src = '/mascot_pie_hd.png';
+    // Draw mascot image if loaded/cached
+    if (imgEl.complete && imgEl.naturalWidth > 0) {
+      const imgAspect = imgEl.naturalWidth / imgEl.naturalHeight;
+      const targetH = 46;
+      const targetW = targetH * imgAspect;
+      ctx.drawImage(imgEl, (W - targetW) / 2, y, targetW, targetH);
+      y += targetH + 8;
+    } else {
+      y += 6;
+    }
+
+    ctx.font = 'bold 15px Arial';
     ctx.fillStyle = '#a0336e';
     ctx.textAlign = 'center';
-    ctx.fillText('🥧 BOENDA PIE PURWOKERTO', W / 2, y + 20);
-    y += 28;
+    ctx.fillText('BOENDA PIE PURWOKERTO', W / 2, y + 14);
+    y += 20;
 
     ctx.font = '11px Arial';
     ctx.fillStyle = '#c4577a';
-    ctx.fillText('Sokawera, Berkoh, Kec. Purwokerto Sel., Kabupaten Banyumas, Jawa Tengah', W / 2, y + 14);
-    y += 18;
+    ctx.fillText('Sokawera, Berkoh, Kec. Purwokerto Sel., Kabupaten Banyumas, Jawa Tengah', W / 2, y + 12);
+    y += 16;
     ctx.font = '10px Arial';
     ctx.fillStyle = '#888';
-    ctx.fillText('Telp/WA: 08986659534', W / 2, y + 14);
-    y += 22;
+    ctx.fillText('Telp/WA: 08986659534', W / 2, y + 12);
+    y += 20;
 
-    dashedLine(y); y += 14;
+    dashedLine(y); y += 16;
 
     // ---- Meta ----
     ctx.textAlign = 'left';
@@ -103,6 +117,16 @@ const ReceiptModal = ({ isOpen, onClose, transaction }) => {
     ctx.font = '11px Arial'; ctx.fillStyle = '#1a1a1a'; ctx.textAlign = 'right';
     ctx.fillText(transaction.cashierName || '-', W - pad, y);
     y += lineH;
+
+    // Pembeli
+    if (transaction.customerName && transaction.customerName !== 'Umum') {
+      const custDisplay = transaction.customerPhone 
+        ? `${transaction.customerName} (${transaction.customerPhone})` 
+        : transaction.customerName;
+      text('Pembeli:', pad, y, { size: 11, family: 'Arial', color: '#555', align: 'left' });
+      text(custDisplay, W - pad, y, { size: 11, weight: 'bold', family: 'Arial', color: '#1a1a1a', align: 'right' });
+      y += lineH;
+    }
 
     // Metode badge
     ctx.font = '11px Arial'; ctx.fillStyle = '#555'; ctx.textAlign = 'left';
@@ -143,7 +167,7 @@ const ReceiptModal = ({ isOpen, onClose, transaction }) => {
       y += lineH;
     }
 
-    dashedLine(y); y += 14;
+    dashedLine(y); y += 16;
 
     // ---- Items ----
     items.forEach((item) => {
@@ -161,11 +185,10 @@ const ReceiptModal = ({ isOpen, onClose, transaction }) => {
       y += lineH;
     });
 
-    dashedLine(y); y += 12;
-    solidLine(y, '#d1d5db'); y += 14;
+    dashedLine(y); y += 16;
 
     // ---- Totals ----
-    ctx.font = 'bold 14px Arial';
+    ctx.font = 'bold 13px Arial';
     ctx.fillStyle = '#1a1a1a';
     ctx.textAlign = 'left';
     ctx.fillText('TOTAL', pad, y);
@@ -178,7 +201,7 @@ const ReceiptModal = ({ isOpen, onClose, transaction }) => {
     ctx.textAlign = 'right'; ctx.fillText(formatRupiah(transaction.payAmount), W - pad, y);
     y += lineH;
 
-    ctx.font = 'bold 13px Arial'; ctx.fillStyle = '#1a7a3a';
+    ctx.font = 'bold 12px Arial'; ctx.fillStyle = '#1a7a3a';
     ctx.textAlign = 'left'; ctx.fillText('KEMBALIAN', pad, y);
     ctx.textAlign = 'right'; ctx.fillText(formatRupiah(transaction.changeAmount), W - pad, y);
     y += 18;
@@ -192,7 +215,111 @@ const ReceiptModal = ({ isOpen, onClose, transaction }) => {
     ctx.font = '10px Arial'; ctx.fillStyle = '#888';
     ctx.fillText('Pie krispi khas Purwokerto favorit keluarga.', W / 2, y);
 
-    // Download
+    return canvas;
+  };
+
+  const handleShareWhatsApp = async () => {
+    let phone = (transaction.customerPhone || '').replace(/[^0-9]/g, '');
+    if (phone.startsWith('0')) {
+      phone = '62' + phone.slice(1);
+    }
+
+    // 1. Salin gambar fisik struk beresolusi tinggi ke Clipboard
+    try {
+      if (navigator.clipboard && window.ClipboardItem) {
+        canvas.toBlob(async (blob) => {
+          if (blob) {
+            try {
+              await navigator.clipboard.write([
+                new ClipboardItem({ 'image/png': blob })
+              ]);
+            } catch (cErr) {
+              console.warn('Clipboard write error:', cErr);
+            }
+          }
+        }, 'image/png');
+      }
+    } catch (e) {}
+
+    // 2. Format Struk WhatsApp yang Cantik, Lengkap & Rapi
+    const formatIdDate = (d) => {
+      try {
+        const dt = d ? new Date(d) : new Date();
+        const months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+        const day = dt.getDate();
+        const month = months[dt.getMonth()];
+        const year = dt.getFullYear();
+        const hours = String(dt.getHours()).padStart(2, '0');
+        const minutes = String(dt.getMinutes()).padStart(2, '0');
+        return `${day} ${month} ${year} pukul ${hours}.${minutes}`;
+      } catch (e) {
+        return '-';
+      }
+    };
+
+    let itemsList = '';
+    if (Array.isArray(transaction.items)) {
+      itemsList = transaction.items.map(item => {
+        const name = item.productName || item.name || 'Produk';
+        const qty = item.quantity || 1;
+        const price = formatRupiah(item.price || 0);
+        const subtotal = formatRupiah(item.subtotal || ((item.price || 0) * qty));
+        return `🥧 *${name}*\n   └ ${qty} x ${price} = *${subtotal}*`;
+      }).join('\n');
+    }
+
+    const cleanPhone = (transaction.customerPhone || '').replace(/[^0-9]/g, '');
+    const custDisplay = transaction.customerName && transaction.customerName !== 'Umum'
+      ? `${transaction.customerName} (${cleanPhone})`
+      : (cleanPhone || 'Pelanggan Umum');
+
+    const pkgText = (transaction.packaging === 'KARDUS' ? 'Kardus 📦' : 'Kertas 📄') +
+      (transaction.packagingFee > 0 ? ` (+${formatRupiah(transaction.packagingFee)})` : ' (Gratis)');
+
+    const receiptMessage = 
+`🧾 STRUK PEMBAYARAN
+═══════════════════════
+BOENDA PIE PURWOKERTO
+Sokawera, Berkoh, Kec. Purwokerto Sel., Kabupaten Banyumas, Jawa Tengah
+Telp/WA: 08986659534
+═══════════════════════
+
+No. Invoice: ${transaction.invoiceNumber || '-'}
+Waktu: ${formatIdDate(transaction.date || transaction.createdAt)}
+Kasir: ${transaction.cashierName || 'Kasir'}
+Pembeli: ${custDisplay}
+Metode: ${transaction.paymentMethod || 'CASH'}
+Packaging: ${pkgText}
+${transaction.notes ? `Catatan: ${transaction.notes}\n` : ''}───────────────────────
+DAFTAR PESANAN:
+${itemsList}
+───────────────────────
+TOTAL     : ${formatRupiah(transaction.totalAmount || 0)}
+BAYAR     : ${formatRupiah(transaction.payAmount || 0)}
+KEMBALIAN : ${formatRupiah(transaction.changeAmount || 0)}
+═══════════════════════
+Terima kasih telah berbelanja di Boenda Pie!
+Pie krispi khas Purwokerto favorit keluarga.`;
+
+    // 3. Unduh salinan gambar struk otomatis agar siap di-attach
+    try {
+      const link = document.createElement('a');
+      link.download = `Struk_${transaction.invoiceNumber || 'Boenda_Pie'}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    } catch (err) {}
+
+    // 4. Buka WhatsApp Web langsung ke chat nomor customer dengan teks struk yang rapi
+    const encodedMsg = encodeURIComponent(receiptMessage);
+    const waUrl = phone 
+      ? `https://web.whatsapp.com/send?phone=${phone}&text=${encodedMsg}`
+      : `https://web.whatsapp.com/send?text=${encodedMsg}`;
+
+    window.open(waUrl, '_blank');
+  };
+
+  const handleDownloadImage = () => {
+    const canvas = generateReceiptCanvas();
     const link = document.createElement('a');
     link.download = `Struk_${transaction.invoiceNumber || 'Boenda_Pie'}.png`;
     link.href = canvas.toDataURL('image/png');
@@ -299,8 +426,6 @@ const ReceiptModal = ({ isOpen, onClose, transaction }) => {
             .total-row.grand-total {
               font-size: 14px;
               font-weight: 900;
-              border-top: 2px solid #ccc;
-              padding-top: 6px;
               margin-top: 4px;
             }
             .total-row.kembalian {
@@ -349,7 +474,7 @@ const ReceiptModal = ({ isOpen, onClose, transaction }) => {
           <div id="printable-receipt-content" style={{ display: 'none' }}>
             <div className="receipt-wrapper">
               <div className="receipt-header">
-                <div className="store-icon">🥧</div>
+                <img src="/mascot_pie_hd.png" alt="Mascot Boenda Pie" style={{ width: '84px', height: 'auto', display: 'block', margin: '0 auto 8px' }} />
                 <h1>BOENDA PIE PURWOKERTO</h1>
                 <p>Sokawera, Berkoh, Kec. Purwokerto Sel., Kabupaten Banyumas, Jawa Tengah</p>
                 <p>Telp/WA: 08986659534</p>
@@ -358,6 +483,12 @@ const ReceiptModal = ({ isOpen, onClose, transaction }) => {
                 <div className="meta-row"><span className="label">No Invoice:</span><span className="value">{transaction.invoiceNumber}</span></div>
                 <div className="meta-row"><span className="label">Waktu:</span><span className="value">{formatDate(transaction.date || transaction.createdAt)}</span></div>
                 <div className="meta-row"><span className="label">Kasir:</span><span className="value">{transaction.cashierName}</span></div>
+                {transaction.customerName && transaction.customerName !== 'Umum' && (
+                  <div className="meta-row">
+                    <span className="label">Pembeli:</span>
+                    <span className="value">{transaction.customerName} {transaction.customerPhone ? `(${transaction.customerPhone})` : ''}</span>
+                  </div>
+                )}
                 <div className="meta-row"><span className="label">Metode:</span><span className="value"><span className="badge">{transaction.paymentMethod}</span></span></div>
                 {transaction.packaging && (
                   <div className="meta-row"><span className="label">Packaging:</span><span className="value"><span className="badge">{transaction.packaging === 'KARDUS' ? 'Kardus' : 'Kertas'}{transaction.packagingFee > 0 ? ` (+${formatRupiah(transaction.packagingFee)})` : ' (Gratis)'}</span></span></div>
@@ -390,16 +521,16 @@ const ReceiptModal = ({ isOpen, onClose, transaction }) => {
           </div>
 
           {/* Visible Preview inside Modal */}
-          <div className="text-center pb-3 border-b border-dashed border-pink-200">
-            <div className="flex justify-center mb-1">
-              <ShoppingBag className="w-6 h-6 text-pink-500" />
+          <div className="text-center pb-3 border-b border-dashed border-pink-300">
+            <div className="flex justify-center mb-2">
+              <img src="/mascot_pie_hd.png" alt="Mascot Boenda Pie" className="h-12 w-auto object-contain" />
             </div>
-            <h2 className="text-base font-bold text-pink-900 font-sans tracking-wide">BOENDA PIE PURWOKERTO</h2>
-            <p className="text-[11px] text-pink-700 font-sans">Sokawera, Berkoh, Kec. Purwokerto Sel., Kabupaten Banyumas, Jawa Tengah</p>
-            <p className="text-[10px] text-slate-500 font-sans">Telp/WA: 08986659534</p>
+            <h2 className="text-sm font-bold text-pink-900 font-sans tracking-wide">BOENDA PIE PURWOKERTO</h2>
+            <p className="text-[11px] text-pink-700 font-sans mt-0.5">Sokawera, Berkoh, Kec. Purwokerto Sel., Kabupaten Banyumas, Jawa Tengah</p>
+            <p className="text-[10px] text-slate-500 font-sans mt-0.5">Telp/WA: 08986659534</p>
           </div>
 
-          <div className="py-2 border-b border-dashed border-pink-200 text-[11px] space-y-1">
+          <div className="py-2.5 border-b border-dashed border-pink-300 text-[11px] space-y-1.5">
             <div className="flex justify-between">
               <span className="text-slate-500">No Invoice:</span>
               <span className="font-semibold text-slate-800">{transaction.invoiceNumber}</span>
@@ -412,6 +543,14 @@ const ReceiptModal = ({ isOpen, onClose, transaction }) => {
               <span className="text-slate-500">Kasir:</span>
               <span>{transaction.cashierName}</span>
             </div>
+            {transaction.customerName && transaction.customerName !== 'Umum' && (
+              <div className="flex justify-between">
+                <span className="text-slate-500">Pembeli:</span>
+                <span className="font-semibold text-slate-800">
+                  {transaction.customerName} {transaction.customerPhone ? `(${transaction.customerPhone})` : ''}
+                </span>
+              </div>
+            )}
             <div className="flex justify-between">
               <span className="text-slate-500">Metode:</span>
               <span className="font-semibold text-slate-700">{transaction.paymentMethod}</span>
@@ -434,7 +573,7 @@ const ReceiptModal = ({ isOpen, onClose, transaction }) => {
           </div>
 
           {/* Items */}
-          <div className="py-3 border-b border-dashed border-pink-200 space-y-2">
+          <div className="py-2.5 border-b border-dashed border-pink-300 space-y-2">
             {transaction.items && transaction.items.map((item, index) => (
               <div key={index} className="space-y-0.5">
                 <div className="font-semibold text-slate-800">{item.productName}</div>
@@ -447,12 +586,12 @@ const ReceiptModal = ({ isOpen, onClose, transaction }) => {
           </div>
 
           {/* Totals */}
-          <div className="pt-3 space-y-1 text-xs">
-            <div className="flex justify-between font-bold text-slate-900 text-sm pt-1">
+          <div className="pt-2.5 pb-2.5 border-b border-dashed border-pink-300 space-y-1.5 text-xs">
+            <div className="flex justify-between font-bold text-slate-900 text-sm">
               <span>TOTAL</span>
               <span className="text-slate-950 font-black">{formatRupiah(transaction.totalAmount)}</span>
             </div>
-            <div className="flex justify-between pt-1">
+            <div className="flex justify-between">
               <span>BAYAR</span>
               <span>{formatRupiah(transaction.payAmount)}</span>
             </div>
@@ -462,34 +601,43 @@ const ReceiptModal = ({ isOpen, onClose, transaction }) => {
             </div>
           </div>
 
-          <div className="mt-4 pt-3 border-t border-dashed border-pink-200 text-center text-[10px] text-slate-500 font-sans">
+          <div className="pt-2.5 text-center text-[10px] text-slate-500 font-sans space-y-0.5">
             <p className="font-medium text-slate-700">Terima kasih telah berbelanja di Boenda Pie!</p>
             <p>Pie krispi khas Purwokerto favorit keluarga.</p>
           </div>
         </div>
 
         {/* Action Buttons */}
-        <div className="flex gap-2 pt-2">
+        <div className="flex items-center gap-1.5 pt-1.5">
           <button
             type="button"
             onClick={handlePrint}
-            className="flex-1 flex items-center justify-center gap-2 py-2.5 px-3 bg-[#f8cee8] text-[#a0336e] border border-[#f0a3d0] hover:bg-[#f3b5db] font-extrabold text-xs rounded-2xl shadow-xs transition-all active:scale-95"
+            className="flex-1 inline-flex items-center justify-center gap-1.5 py-1.5 px-2 bg-pink-100 hover:bg-pink-200 text-pink-700 border border-pink-200 font-semibold text-[11px] rounded-lg transition-all active:scale-95 whitespace-nowrap shadow-xs"
           >
-            <Printer className="w-4 h-4" />
+            <Printer className="w-3.5 h-3.5" />
             Cetak
           </button>
           <button
             type="button"
             onClick={handleDownloadImage}
-            className="flex-1 flex items-center justify-center gap-2 py-2.5 px-3 bg-[#beeaff] text-[#1a6fa0] border border-[#7dcef5] hover:bg-[#a5e1ff] font-extrabold text-xs rounded-2xl shadow-xs transition-all active:scale-95"
+            className="flex-1 inline-flex items-center justify-center gap-1.5 py-1.5 px-2 bg-sky-100 hover:bg-sky-200 text-sky-700 border border-sky-200 font-semibold text-[11px] rounded-lg transition-all active:scale-95 whitespace-nowrap shadow-xs"
           >
-            <ImageDown className="w-4 h-4" />
-            Simpan Gambar
+            <ImageDown className="w-3.5 h-3.5" />
+            Simpan
+          </button>
+          <button
+            type="button"
+            onClick={handleShareWhatsApp}
+            title={transaction.customerPhone ? `Kirim ke WA ${transaction.customerPhone}` : 'Kirim via WhatsApp'}
+            className="flex-1 inline-flex items-center justify-center gap-1.5 py-1.5 px-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-[11px] rounded-lg transition-all active:scale-95 whitespace-nowrap shadow-xs"
+          >
+            <MessageCircle className="w-3.5 h-3.5" />
+            Kirim WA
           </button>
           <button
             type="button"
             onClick={onClose}
-            className="py-2.5 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-colors"
+            className="inline-flex items-center justify-center py-1.5 px-3 bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-200 font-semibold text-[11px] rounded-lg transition-colors active:scale-95"
           >
             Tutup
           </button>

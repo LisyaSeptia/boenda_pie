@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const Transaction = require('../models/Transaction');
 const Product = require('../models/Product');
 const StockMovement = require('../models/StockMovement');
+const Customer = require('../models/Customer');
 const { successResponse, errorResponse } = require('../utils/responseHandler');
 
 // Helper to generate Invoice Number
@@ -30,7 +31,7 @@ const createTransaction = async (req, res, next) => {
   const sessionOptions = useTransaction ? { session } : {};
 
   try {
-    const { items, payAmount, paymentMethod, packaging, packagingFee, notes } = req.body;
+    const { items, payAmount, paymentMethod, packaging, packagingFee, notes, customerName, customerPhone, customerId } = req.body;
 
     if (!items || !Array.isArray(items) || items.length === 0) {
       if (useTransaction) {
@@ -125,6 +126,58 @@ const createTransaction = async (req, res, next) => {
     const changeAmount = numPayAmount - calculatedTotal;
     const invoiceNumber = generateInvoiceNumber();
 
+    // Handle Customer Data
+    let assignedCustomerId = null;
+    let assignedCustomerName = (customerName && customerName.trim()) || 'Umum';
+    let assignedCustomerPhone = (customerPhone && customerPhone.trim()) || '';
+
+    if (assignedCustomerName && assignedCustomerName.toLowerCase() !== 'umum') {
+      try {
+        let existingCust = null;
+        if (customerId) {
+          existingCust = useTransaction
+            ? await Customer.findById(customerId).session(session)
+            : await Customer.findById(customerId);
+        } else if (assignedCustomerPhone) {
+          existingCust = useTransaction
+            ? await Customer.findOne({ phone: assignedCustomerPhone }).session(session)
+            : await Customer.findOne({ phone: assignedCustomerPhone });
+        }
+
+        if (!existingCust) {
+          existingCust = useTransaction
+            ? await Customer.findOne({ name: { $regex: `^${assignedCustomerName}$`, $options: 'i' } }).session(session)
+            : await Customer.findOne({ name: { $regex: `^${assignedCustomerName}$`, $options: 'i' } });
+        }
+
+        if (existingCust) {
+          assignedCustomerId = existingCust._id;
+          assignedCustomerName = existingCust.name;
+          if (assignedCustomerPhone && !existingCust.phone) {
+            existingCust.phone = assignedCustomerPhone;
+          }
+          existingCust.totalOrders = (existingCust.totalOrders || 0) + 1;
+          existingCust.totalSpent = (existingCust.totalSpent || 0) + calculatedTotal;
+          existingCust.lastOrderAt = new Date();
+          await existingCust.save(sessionOptions);
+          assignedCustomerPhone = existingCust.phone || assignedCustomerPhone;
+        } else {
+          // Buat Customer Baru
+          const newCust = new Customer({
+            name: assignedCustomerName,
+            phone: assignedCustomerPhone,
+            totalOrders: 1,
+            totalSpent: calculatedTotal,
+            lastOrderAt: new Date()
+          });
+          await newCust.save(sessionOptions);
+          assignedCustomerId = newCust._id;
+        }
+      } catch (custErr) {
+        console.warn('Gagal memproses customer:', custErr);
+      }
+    }
+
     // 1. Simpan Transaksi
     const transaction = new Transaction({
       invoiceNumber,
@@ -137,6 +190,9 @@ const createTransaction = async (req, res, next) => {
       status: 'COMPLETED',
       cashierId: req.user._id,
       cashierName: (req.body.cashierName && req.body.cashierName.trim()) || req.user.name || req.user.username,
+      customerId: assignedCustomerId,
+      customerName: assignedCustomerName,
+      customerPhone: assignedCustomerPhone,
       packaging: packaging || 'KERTAS',
       packagingFee: safePackagingFee,
       notes: notes || ''
@@ -205,7 +261,9 @@ const getTransactions = async (req, res, next) => {
     if (search) {
       query.$or = [
         { invoiceNumber: { $regex: search, $options: 'i' } },
-        { cashierName: { $regex: search, $options: 'i' } }
+        { cashierName: { $regex: search, $options: 'i' } },
+        { customerName: { $regex: search, $options: 'i' } },
+        { customerPhone: { $regex: search, $options: 'i' } }
       ];
     }
 
@@ -223,6 +281,7 @@ const getTransactions = async (req, res, next) => {
 
     const transactions = await Transaction.find(query)
       .populate('cashierId', 'name username role')
+      .populate('customerId', 'name phone')
       .sort({ createdAt: -1 });
 
     return successResponse(res, 200, 'Daftar transaksi berhasil diambil', transactions);
@@ -236,10 +295,9 @@ const getTransactions = async (req, res, next) => {
 // @access  Private
 const getTransactionById = async (req, res, next) => {
   try {
-    const transaction = await Transaction.findById(req.params.id).populate(
-      'cashierId',
-      'name username role'
-    );
+    const transaction = await Transaction.findById(req.params.id)
+      .populate('cashierId', 'name username role')
+      .populate('customerId', 'name phone');
 
     if (!transaction) {
       return errorResponse(res, 404, 'Transaksi tidak ditemukan');
@@ -251,8 +309,95 @@ const getTransactionById = async (req, res, next) => {
   }
 };
 
+const { sendReceiptViaWhatsApp } = require('../utils/fonnteService');
+
+// @desc    Send receipt to customer WhatsApp via Fonnte API
+// @route   POST /api/transactions/send-wa
+// @access  Private
+const sendWhatsAppReceipt = async (req, res, next) => {
+  try {
+    const { phone, invoiceNumber, customerName, items, totalAmount, payAmount, changeAmount, cashierName, date, packaging, packagingFee } = req.body;
+
+    if (!phone) {
+      return errorResponse(res, 400, 'Nomor HP customer wajib disertakan');
+    }
+
+    const formatIdDate = (d) => {
+      try {
+        const dt = d ? new Date(d) : new Date();
+        const months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+        const day = dt.getDate();
+        const month = months[dt.getMonth()];
+        const year = dt.getFullYear();
+        const hours = String(dt.getHours()).padStart(2, '0');
+        const minutes = String(dt.getMinutes()).padStart(2, '0');
+        return `${day} ${month} ${year} pukul ${hours}.${minutes}`;
+      } catch (e) {
+        return '-';
+      }
+    };
+
+    let itemsText = '';
+    if (Array.isArray(items)) {
+      itemsText = items.map(item => {
+        const name = item.productName || item.name || 'Produk';
+        const qty = item.quantity || 1;
+        const price = (item.price || 0).toLocaleString('id-ID');
+        const subtotal = (item.subtotal || (item.price * qty) || 0).toLocaleString('id-ID');
+        return `*${name}*\n${qty} x Rp ${price}\nRp ${subtotal}`;
+      }).join('\n\n');
+    }
+
+    const cleanPhone = (phone || '').replace(/[^0-9]/g, '');
+    const custDisplay = customerName && customerName !== 'Umum' 
+      ? `${customerName} (${cleanPhone})` 
+      : (cleanPhone || 'Umum');
+
+    const pkgText = (packaging === 'KARDUS' ? 'Kardus' : 'Kertas') +
+      (packagingFee > 0 ? ` (+Rp ${(packagingFee).toLocaleString('id-ID')})` : ' (Gratis)');
+
+    const message = 
+`🧾 STRUK PEMBAYARAN
+═══════════════════════
+BOENDA PIE PURWOKERTO
+Sokawera, Berkoh, Kec. Purwokerto Sel., Kabupaten Banyumas, Jawa Tengah
+Telp/WA: 08986659534
+═══════════════════════
+
+No Invoice: ${invoiceNumber || '-'}
+Waktu: ${formatIdDate(date)}
+Kasir: ${cashierName || 'Kasir'}
+Pembeli: ${custDisplay}
+Metode: ${req.body.paymentMethod || 'CASH'}
+Packaging: ${pkgText}
+------------------------------------------
+${itemsText}
+------------------------------------------
+TOTAL     : Rp ${(Number(totalAmount) || 0).toLocaleString('id-ID')}
+BAYAR     : Rp ${(Number(payAmount) || 0).toLocaleString('id-ID')}
+KEMBALIAN : Rp ${(Number(changeAmount) || 0).toLocaleString('id-ID')}
+------------------------------------------
+Terima kasih telah berbelanja di Boenda Pie!
+Pie krispi khas Purwokerto favorit keluarga.`;
+
+    const result = await sendReceiptViaWhatsApp({
+      target: phone,
+      message
+    });
+
+    if (result.success) {
+      return successResponse(res, 200, result.message, result.data);
+    } else {
+      return errorResponse(res, 400, result.message, result.data);
+    }
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   createTransaction,
   getTransactions,
-  getTransactionById
+  getTransactionById,
+  sendWhatsAppReceipt
 };
